@@ -37,8 +37,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    "rest_framework.authtoken",
     'consultagro_app',
 ]
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -77,7 +85,7 @@ WSGI_APPLICATION = 'agrovet.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'sirelab1',            # Nombre de tu base de datos
+        'NAME': 'sirelab2',            # Nombre de tu base de datos
         'USER': 'postgres',        # Usuario creado en PostgreSQL
         'PASSWORD': 'root',  # Contraseña del usuario
         'HOST': 'localhost',       # O la IP/host del servidor
@@ -109,7 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es'
 
 TIME_ZONE = 'UTC'
 
@@ -127,3 +135,8 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # React local
+    "https://crud-registrolab.vercel.app",  # Deploy
+]

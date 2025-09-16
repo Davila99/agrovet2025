@@ -85,14 +85,11 @@ WSGI_APPLICATION = 'agrovet.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'agrovet',
-        'USER': 'soportedev',
-        'PASSWORD': 'TfsCAXLuvkQJqg2',
-        'HOST': 'sirelab2025.postgres.database.azure.com',
+        'NAME': 'postgres',
+        'USER': 'postgres.wfkyqplcdkbordjbdmms',
+        'PASSWORD': 'Uraccan2025"#"',
+        'HOST': 'aws-1-us-east-2.pooler.supabase.com',  # usa el host completo
         'PORT': '5432',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
     }
 }
 

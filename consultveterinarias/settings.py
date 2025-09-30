@@ -79,8 +79,12 @@ WSGI_APPLICATION = 'consultveterinarias.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',  # Cambiar a MySQL
+        'NAME': 'agrovets2025',                 # Nombre de tu base de datos MySQL
+        'USER': 'root',                        # Usuario de MySQL
+        'PASSWORD': 'root',                    # Contraseña de MySQL
+        'HOST': '127.0.0.1',                   # o 'localhost'
+        'PORT': '3306',                         # Puerto por defecto de MySQL
     }
 }
 

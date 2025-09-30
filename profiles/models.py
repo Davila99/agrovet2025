@@ -11,6 +11,7 @@ class ProfesionalPerfil(models.Model):
         CustomUser,
         on_delete=models.CASCADE
     )
+   
     def __str__(self):
         return (self)
     

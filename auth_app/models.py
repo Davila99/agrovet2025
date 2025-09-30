@@ -6,7 +6,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
-
+from django.contrib import admin
 from .managers import CustomUserManager
 
 
@@ -40,3 +40,4 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.full_name or self.phone_number} ({self.get_role_display() if self.role else 'Sin rol'})"
+    

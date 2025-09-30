@@ -17,6 +17,18 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         unique=True,
         validators=[RegexValidator(regex=r'^\+?\d{7,15}$', message="Ingrese un número válido")]
     )
+    
+    ROLE_CHOICES = (
+        ("veter", "Veterinario"),
+        ("agron", "Agrónomo"),
+        ("duani", "Dueño de animales"),
+        ("duene", "Dueño de negocio"),
+    )
+    role = models.CharField(_("rol"), max_length=20, choices=ROLE_CHOICES, blank=True, null=True)
+    
+    full_name = models.CharField(_("nombre completo"), max_length=150, blank=True)
+    profile_picture = models.ImageField(_("foto de perfil"), upload_to="profiles/", blank=True, null=True)
+    bio = models.TextField(_("Sobre mi"), blank=True, null=True)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(default=timezone.now)
@@ -27,4 +39,4 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.phone_number
+        return f"{self.full_name or self.phone_number} ({self.get_role_display() if self.role else 'Sin rol'})"

@@ -25,3 +25,11 @@ venv\Scripts\activate
 # En Linux/Mac
 source venv/bin/activate
 
+#Instalar las dependencias
+pip install -r requirements.txt
+
+#Ejecuta las migraciones
+python manage.py migrate
+
+#Personaliza el superUser
+python manage.py createsuperuser

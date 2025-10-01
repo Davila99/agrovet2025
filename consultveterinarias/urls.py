@@ -24,6 +24,7 @@ urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),
     path('api/profiles/', include('profiles.api.urls')),
     path('api/auth/', include('auth_app.api.urls')),  # 👈 aquí
+    path('api/chat/', include('chat.api.urls')),  # 👈 aquí
 
     
 ]

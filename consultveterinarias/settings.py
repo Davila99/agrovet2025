@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'auth_app',
     'profiles',
     'corsheaders',
+    "chat",
     
 ]
 
@@ -139,3 +140,4 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app",    # deploy (sin / al final)
 ]
+ASGI_APPLICATION = 'agrovets.asgi.application' 

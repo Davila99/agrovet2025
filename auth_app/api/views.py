@@ -4,11 +4,11 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 
 from .serializers import UserRegisterSerializer, UserLoginSerializer, UserSerializer
-from auth_app.models import CustomUser
+from auth_app.models import User
 
 
 class RegisterViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.all()
+    queryset = User.objects.all()
     serializer_class = UserRegisterSerializer
 
     def create(self, request, *args, **kwargs):

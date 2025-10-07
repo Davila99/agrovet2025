@@ -1,42 +1,44 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser
-from profiles.models import ProfesionalPerfil, BusinessOwner
+from auth_app.models import User
+from profiles.models import SpecialistProfile, BusinessmanProfile
 
-# Inlines
-class ProfesionalPerfilInline(admin.StackedInline):
-    model = ProfesionalPerfil
+class SpecialistProfileInline(admin.StackedInline):
+    model = SpecialistProfile
     can_delete = False
     verbose_name_plural = "Perfil Profesional"
 
-class BusinessOwnerInline(admin.StackedInline):
-    model = BusinessOwner
+class BusinessmanProfileInline(admin.StackedInline):
+    model = BusinessmanProfile
     can_delete = False
     verbose_name_plural = "Perfil de Negocio"
 
-@admin.register(CustomUser)
-class CustomUserAdmin(UserAdmin):  # Hereda de UserAdmin para mantener todo
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
     list_display = ("phone_number", "full_name", "role", "is_staff", "is_active")
     list_filter = ("role", "is_staff", "is_active")
+    ordering = ("phone_number",)
+    search_fields = ("phone_number", "full_name")
+
     fieldsets = (
         (None, {"fields": ("phone_number", "password")}),
-        ("Información personal", {"fields": ("full_name", "profile_picture", "bio", "role")}),
+        ("Información personal", {"fields": ("full_name", "last_name", "role", "latitude", "longitude", "profile_picture", "bio")}),
         ("Permisos", {"fields": ("is_staff", "is_active", "is_superuser", "groups", "user_permissions")}),
+        ("Fechas importantes", {"fields": ("date_joined",)}),
     )
+
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("phone_number", "full_name", "role", "password1", "password2", "is_staff", "is_active")}
-        ),
+            "fields": ("phone_number", "full_name", "role", "password1", "password2", "is_staff", "is_active")
+        }),
     )
-    search_fields = ("phone_number", "full_name")
-    ordering = ("phone_number",)
 
     def get_inline_instances(self, request, obj=None):
         inlines = []
         if obj:
-            if obj.role in ["veter", "agron"]:
-                inlines.append(ProfesionalPerfilInline(self.model, self.admin_site))
-            elif obj.role == "duene":
-                inlines.append(BusinessOwnerInline(self.model, self.admin_site))
+            if obj.role == "Specialist":
+                inlines.append(SpecialistProfileInline(self.model, self.admin_site))
+            elif obj.role == "businessman":
+                inlines.append(BusinessmanProfileInline(self.model, self.admin_site))
         return inlines

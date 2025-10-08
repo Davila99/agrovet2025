@@ -50,6 +50,9 @@ class ConsumerProfileInline(admin.StackedInline):
 
 
 # === ADMIN DE SPECIALIST ===
+from django.contrib import admin
+from .models import SpecialistProfile
+
 @admin.register(SpecialistProfile)
 class SpecialistProfileAdmin(admin.ModelAdmin):
     list_display = (
@@ -62,6 +65,7 @@ class SpecialistProfileAdmin(admin.ModelAdmin):
     list_filter = ('profession', 'can_give_consultations', 'can_offer_online_services')
     ordering = ('user__full_name',)
     readonly_fields = ('puntuations', 'point', 'user')
+    list_select_related = ('user',)  # Optimiza consultas al mostrar user
 
     fieldsets = (
         ('Usuario Asociado', {
@@ -83,6 +87,7 @@ class SpecialistProfileAdmin(admin.ModelAdmin):
     @admin.display(description='Puntuación Promedio')
     def average_score(self, obj):
         return f"{obj.point:.2f}" if obj.point else "—"
+
 
 
 # === ADMIN DE BUSINESSMAN ===

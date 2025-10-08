@@ -1,93 +1,122 @@
 from django.contrib import admin
 from .models import SpecialistProfile, BusinessmanProfile, ConsumerProfile
 
-# --- Inlines (Recomendado para integrar en el User Admin) ---
 
-# Clase Inline para el perfil de Especialista (para usar en UserAdmin)
+# === CLASES INLINE ===
 class SpecialistProfileInline(admin.StackedInline):
     model = SpecialistProfile
     can_delete = False
     verbose_name_plural = 'Perfil de Especialista'
+    fk_name = 'user'
     fieldsets = (
-        (None, {
-            'fields': ('profession', 'experience_years', 'about_us')
+        ('Información Profesional', {
+            'fields': ('profession', 'experience_years', 'about_us'),
         }),
         ('Puntuación', {
             'fields': ('puntuations', 'point'),
             'classes': ('collapse',),
         }),
-        ('Funcionalidades', {
+        ('Permisos y Funcionalidades', {
             'fields': ('can_give_consultations', 'can_offer_online_services'),
         }),
     )
     readonly_fields = ('puntuations', 'point')
-    
-# Clase Inline para el perfil de Negocio (para usar en UserAdmin)
+
+
 class BusinessmanProfileInline(admin.StackedInline):
     model = BusinessmanProfile
     can_delete = False
-    verbose_name_plural = 'Perfil de Negocio'
-    fields = ('business_name', 'descriptions', 'contact', 'location_description', 'offers_local_products')
+    verbose_name_plural = 'Perfil de Empresario'
+    fk_name = 'user'
+    fieldsets = (
+        ('Datos del Negocio', {
+            'fields': ('business_name', 'descriptions'),
+        }),
+        ('Ubicación y Contacto', {
+            'fields': ('contact', 'location_description'),
+        }),
+        ('Funciones', {
+            'fields': ('offers_local_products',),
+        }),
+    )
 
-# Clase Inline para el perfil de Consumidor (para usar en UserAdmin)
+
 class ConsumerProfileInline(admin.StackedInline):
     model = ConsumerProfile
     can_delete = False
     verbose_name_plural = 'Perfil de Consumidor'
-    # Como ConsumerProfile no tiene campos propios, lo dejamos simple.
+    fk_name = 'user'
+    extra = 0
 
 
-# --- ModelAdmins (Para registro individual si se prefiere) ---
-
+# === ADMIN DE SPECIALIST ===
 @admin.register(SpecialistProfile)
 class SpecialistProfileAdmin(admin.ModelAdmin):
-    list_display = ('user_username', 'profession', 'experience_years', 'can_give_consultations')
-    search_fields = ('user__username', 'profession')
-    list_filter = ('can_give_consultations', 'can_offer_online_services', 'profession')
-    readonly_fields = ('puntuations', 'point', 'user') # 'user' es readonly porque es la clave primaria
-    
+    list_display = (
+        'user_display', 'profession', 'experience_years',
+        'can_give_consultations', 'can_offer_online_services',
+        'average_score'
+    )
+    list_display_links = ('user_display',)
+    search_fields = ('user__full_name', 'user__phone_number', 'profession', 'about_us')
+    list_filter = ('profession', 'can_give_consultations', 'can_offer_online_services')
+    ordering = ('user__full_name',)
+    readonly_fields = ('puntuations', 'point', 'user')
+
     fieldsets = (
-        (None, {
-            'fields': ('user', 'profession', 'experience_years', 'about_us')
+        ('Usuario Asociado', {
+            'fields': ('user',),
         }),
-        ('Funcionalidades y Puntuación', {
+        ('Información Profesional', {
+            'fields': ('profession', 'experience_years', 'about_us'),
+        }),
+        ('Funciones y Puntuación', {
             'fields': ('can_give_consultations', 'can_offer_online_services', 'puntuations', 'point'),
+            'classes': ('collapse',),
         }),
     )
 
-    @admin.display(description='Usuario')
-    def user_username(self, obj):
-        # Muestra el nombre de usuario de la instancia de User
-        return obj.user.username
+    @admin.display(description='Usuario', ordering='user__full_name')
+    def user_display(self, obj):
+        return obj.user.full_name or obj.user.phone_number
+
+    @admin.display(description='Puntuación Promedio')
+    def average_score(self, obj):
+        return f"{obj.point:.2f}" if obj.point else "—"
 
 
+# === ADMIN DE BUSINESSMAN ===
 @admin.register(BusinessmanProfile)
 class BusinessmanProfileAdmin(admin.ModelAdmin):
-    list_display = ('business_name', 'user_username', 'contact', 'offers_local_products')
-    search_fields = ('business_name', 'user__username', 'contact')
+    list_display = ('business_name', 'user_display', 'contact', 'offers_local_products')
+    list_display_links = ('business_name',)
+    search_fields = ('business_name', 'user__full_name', 'user__phone_number', 'contact')
     list_filter = ('offers_local_products',)
     readonly_fields = ('user',)
+    ordering = ('business_name',)
 
     fieldsets = (
-        (None, {
-            'fields': ('user', 'business_name', 'contact', 'location_description', 'descriptions')
-        }),
-        ('Funcionalidades', {
-            'fields': ('offers_local_products',),
-        }),
+        ('Usuario Asociado', {'fields': ('user',)}),
+        ('Información del Negocio', {'fields': ('business_name', 'descriptions')}),
+        ('Ubicación y Contacto', {'fields': ('contact', 'location_description')}),
+        ('Funciones', {'fields': ('offers_local_products',)}),
     )
-    
-    @admin.display(description='Usuario')
-    def user_username(self, obj):
-        return obj.user.username
+
+    @admin.display(description='Usuario', ordering='user__full_name')
+    def user_display(self, obj):
+        return obj.user.full_name or obj.user.phone_number
 
 
+# === ADMIN DE CONSUMER ===
 @admin.register(ConsumerProfile)
 class ConsumerProfileAdmin(admin.ModelAdmin):
-    list_display = ('user_username',)
-    search_fields = ('user__username',)
+    list_display = ('user_display',)
+    search_fields = ('user__full_name', 'user__phone_number')
     readonly_fields = ('user',)
+    ordering = ('user__full_name',)
 
-    @admin.display(description='Usuario')
-    def user_username(self, obj):
-        return obj.user.username
+    fieldsets = (('Usuario Asociado', {'fields': ('user',)}),)
+
+    @admin.display(description='Usuario', ordering='user__full_name')
+    def user_display(self, obj):
+        return obj.user.full_name or obj.user.phone_number

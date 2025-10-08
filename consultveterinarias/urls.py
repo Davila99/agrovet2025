@@ -19,12 +19,13 @@ from django.urls import path,include
 from django.views.generic import RedirectView
 from rest_framework.authtoken import views
 
+# En C:\Users\...\agrovet\urls.py
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', RedirectView.as_view(url='/admin/', permanent=True)),
     path('api/profiles/', include('profiles.api.urls')),
-    path('api/auth/', include('auth_app.api.urls')),  # 👈 aquí
-    path('api/chat/', include('chat.api.urls')),  # 👈 aquí
-
-    
+    path('api/auth/', include('auth_app.api.urls')),
+    # Esta línea está 100% correcta
+    path('api/chat/', include('chat.api.urls')), 
 ]

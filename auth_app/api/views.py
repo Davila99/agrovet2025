@@ -1,10 +1,11 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 
-from .serializers import UserRegisterSerializer, UserLoginSerializer, UserSerializer
+from .serializers import UserProfileImageUploadSerializer, UserRegisterSerializer, UserLoginSerializer, UserSerializer
 from auth_app.models import User
+from rest_framework.views import APIView
 
 
 class RegisterViewSet(viewsets.ModelViewSet):
@@ -40,3 +41,16 @@ class LoginViewSet(viewsets.ViewSet):
             "user": UserSerializer(user).data,
             "token": token.key
         }, status=status.HTTP_200_OK)
+class UploadProfilePictureView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = UserProfileImageUploadSerializer(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            serializer.update(user, serializer.validated_data)
+            return Response({
+                "message": "Imagen de perfil actualizada correctamente",
+                "user": UserSerializer(user).data
+            }, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

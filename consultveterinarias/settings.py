@@ -140,4 +140,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app",    # deploy (sin / al final)
 ]
+
 ASGI_APPLICATION = 'agrovets.asgi.application' 
+SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
+SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"  # ⚠️ Usa la clave de servicio (no pública)
+SUPABASE_BUCKET = "agrovet-profile"

@@ -21,7 +21,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(_("rol"), max_length=20, choices=ROLE_CHOICES, blank=True, null=True)
     full_name = models.CharField(_("nombre"), max_length=150, blank=True)
     last_name = models.CharField(_("apellido"), max_length=150, blank=True)
-    profile_picture = models.ImageField(_("foto de perfil"), upload_to="profiles/", blank=True, null=True)
+    profile_picture = models.CharField(
+        _("foto de perfil"),
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="URL de la imagen en Supabase"
+    )
     bio = models.TextField(_("Sobre mi"), blank=True, null=True)
     
     # Campos de ubicación global (según el esquema original)

@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from auth_app.models import User
 from profiles.models import SpecialistProfile, BusinessmanProfile
+from django.utils.html import format_html
 
 class SpecialistProfileInline(admin.StackedInline):
     model = SpecialistProfile
@@ -42,3 +43,9 @@ class CustomUserAdmin(UserAdmin):
             elif obj.role == "businessman":
                 inlines.append(BusinessmanProfileInline(self.model, self.admin_site))
         return inlines
+    def profile_image_preview(self, obj):
+        if obj.profile_picture:
+            return format_html('<img src="{}" width="50" height="50" style="border-radius:50%;" />', obj.profile_picture)
+        return "Sin imagen"
+
+    profile_image_preview.short_description = "Foto"

@@ -1,29 +1,32 @@
 from rest_framework import serializers
-from profiles.models import Specialitys, BusinessOwner, ProfesionalPerfil
-from auth_app.models import CustomUser
+from profiles.models import SpecialistProfile, BusinessmanProfile, ConsumerProfile
 
-class SpecialitysSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Specialitys
-        fields = ['id', 'name', 'type']
-
-class BusinessOwnerSerializer(serializers.ModelSerializer):
-    user_full_name = serializers.CharField(source='user.full_name', read_only=True)
+class SpecialistProfileSerializer(serializers.ModelSerializer):
+    # Campo de solo lectura para mostrar el nombre de usuario asociado
+    user_username = serializers.CharField(source='user.username', read_only=True)
 
     class Meta:
-        model = BusinessOwner
-        fields = ['id', 'user', 'user_full_name']
+        model = SpecialistProfile
+        fields = [
+            'user_username', 'profession', 'experience_years', 'about_us', 
+            'can_give_consultations', 'can_offer_online_services', 
+            'puntuations', 'point',
+        ]
+        # 'user' es asignado automáticamente en la vista, y los puntos son calculados
+        read_only_fields = ('user', 'puntuations', 'point') 
 
-class ProfesionalPerfilSerializer(serializers.ModelSerializer):
-    user_full_name = serializers.CharField(source='user.full_name', read_only=True)
-    specialitys = SpecialitysSerializer(many=True, read_only=True)
-    specialitys_ids = serializers.PrimaryKeyRelatedField(
-        queryset=Specialitys.objects.all(),
-        many=True,
-        source='specialitys',
-        write_only=True
-    )
-
+class BusinessmanProfileSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    
     class Meta:
-        model = ProfesionalPerfil
-        fields = ['id', 'user', 'user_full_name', 'year_experience', 'specialitys', 'specialitys_ids']
+        model = BusinessmanProfile
+        fields = '__all__'
+        read_only_fields = ('user',)
+
+class ConsumerProfileSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = ConsumerProfile
+        fields = '__all__'
+        read_only_fields = ('user',)

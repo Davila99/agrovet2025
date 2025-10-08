@@ -1,44 +1,93 @@
-# chat_app/views.py
-
-from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
+from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 
-from chat.models import ChatRoom, ChatMessage
-from .serializers import ChatRoomSerializer, ChatMessageSerializer
+# CORRECCIÓN DE IMPORTACIÓN: Usamos '..' para importar desde el directorio padre (chat)
+from ..models import ChatRoom, ChatMessage
+from .serializers import ChatMessageSerializer, ChatRoomSerializer # Asumiendo que existen
 
-class ChatRoomViewSet(viewsets.ModelViewSet):
+class ChatMessageViewSet(viewsets.ViewSet):
     """
-    ViewSet para listar, crear y obtener detalles de las salas de chat.
+    Gestiona el listado de salas, mensajes dentro de una sala y el envío de nuevos mensajes.
+    El listado general (messages/) muestra las salas a las que pertenece el usuario.
     """
-    serializer_class = ChatRoomSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        """Devuelve solo las salas de chat donde el usuario actual es un participante."""
-        # Filtra las salas que incluyen al usuario de la petición
-        return ChatRoom.objects.filter(participants=self.request.user).order_by('-last_activity')
+    # --- Acciones Generales (Mapeadas por el router de urls.py) ---
 
-    def perform_create(self, serializer):
-        """Asegura que el usuario de la petición se pase al serializer para la lógica de creación."""
-        # La lógica de creación/búsqueda de sala se maneja en el serializer
-        serializer.save()
-
-    # Nuevo endpoint para obtener todos los mensajes de una sala específica
-    @action(detail=True, methods=['get'])
-    def messages(self, request, pk=None):
-        """Obtiene la lista de mensajes para un ChatRoom específico (por ID)."""
-        room = get_object_or_404(ChatRoom, pk=pk)
+    def list(self, request):
+        """
+        [GET /api/chat/messages/]
+        Devuelve todas las salas de chat en las que el usuario es un participante.
+        """
+        user = request.user
         
-        # Opcional: Asegúrate de que el usuario sea parte de la sala antes de mostrar los mensajes
-        if not room.participants.filter(id=request.user.id).exists():
-             return Response({"detail": "No autorizado para ver esta sala de chat."}, status=403)
-
-        # Obtenemos los mensajes ordenados
-        messages = room.messages.all() 
+        # Filtra las salas donde el usuario está en la lista de participantes
+        queryset = ChatRoom.objects.filter(participants=user).order_by('-created_at')
         
-        # Serializamos y devolvemos la respuesta
-        serializer = ChatMessageSerializer(messages, many=True)
+        # Usamos el serializador de sala de chat
+        serializer = ChatRoomSerializer(queryset, many=True, context={'request': request})
+        
         return Response(serializer.data)
+
+
+    # --- Acciones Personalizadas ---
+    
+    @action(detail=False, methods=['get'])
+    def room_messages(self, request):
+        """
+        [GET /api/chat/messages/room_messages/?room_id=X]
+        Devuelve los mensajes para una sala específica.
+        """
+        room_id = request.query_params.get('room_id')
+        if not room_id:
+            return Response(
+                {"detail": "Debe proporcionar el parámetro 'room_id'."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # 1. Verificar si la sala existe y si el usuario pertenece a ella
+        try:
+            room = ChatRoom.objects.get(pk=room_id, participants=request.user)
+        except ChatRoom.DoesNotExist:
+            raise PermissionDenied("La sala no existe o no eres un participante.")
+
+        # 2. Obtener los mensajes y serializarlos
+        messages = ChatMessage.objects.filter(room=room).order_by('timestamp')
+        serializer = ChatMessageSerializer(messages, many=True, context={'request': request})
+        
+        return Response(serializer.data)
+
+
+    @action(detail=False, methods=['post'])
+    def send(self, request):
+        """
+        [POST /api/chat/messages/send/]
+        Crea un nuevo mensaje en una sala específica.
+        """
+        serializer = ChatMessageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        room_id = serializer.validated_data.get('room').id
+        content = serializer.validated_data.get('content')
+        
+        # 1. Verificar si la sala existe y si el usuario pertenece a ella
+        try:
+            room = ChatRoom.objects.get(pk=room_id, participants=request.user)
+        except ChatRoom.DoesNotExist:
+            raise PermissionDenied("La sala no existe o no eres un participante.")
+        
+        # 2. Crear y guardar el mensaje
+        message = ChatMessage.objects.create(
+            room=room,
+            sender=request.user,
+            content=content
+        )
+        
+        return Response(
+            ChatMessageSerializer(message).data, 
+            status=status.HTTP_201_CREATED
+        )

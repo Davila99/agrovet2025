@@ -1,68 +1,68 @@
-# chat_app/serializers.py
-
 from rest_framework import serializers
-from chat.models import ChatRoom, ChatMessage
-from auth_app.models import CustomUser # Asumiendo que CustomUser es tu modelo de usuario
+from django.contrib.auth import get_user_model
+from ..models import ChatRoom, ChatMessage
 
-class CustomUserSerializer(serializers.ModelSerializer):
-    """Serializer básico para exponer la información del usuario."""
+User = get_user_model()
+
+# --- 1. Serializador de Usuario Base ---
+class SenderSerializer(serializers.ModelSerializer):
+    """ Serializa la información básica del usuario (remitente) para el chat. """
     class Meta:
-        model = CustomUser
-        # Incluye solo la información necesaria para el chat
-        fields = ('id', 'username', 'full_name') 
+        model = User
+        # Se asume que el modelo de usuario tiene 'id' y 'username'
+        fields = ['id', 'username']
         read_only_fields = fields
 
+
+# --- 2. Serializador de Mensajes (Lectura y Escritura) ---
 class ChatMessageSerializer(serializers.ModelSerializer):
-    """Serializer para los mensajes individuales."""
-    # Usamos CustomUserSerializer para serializar el remitente anidado
-    sender = CustomUserSerializer(read_only=True) 
+    """
+    Serializador principal para los mensajes.
+    - Se usa para la lectura de mensajes (GET).
+    - Se usa para el envío de mensajes (POST), donde 'sender' se ignora y se asigna en la vista.
+    """
+    # Muestra la información completa del remitente, en lugar de solo el ID
+    sender = SenderSerializer(read_only=True)
+    
+    # Para el campo 'room' en el POST, aceptamos el ID de la sala. 
+    # El ViewSet verifica si el usuario es participante.
+    room = serializers.PrimaryKeyRelatedField(
+        queryset=ChatRoom.objects.all(),
+        label="ID de la Sala"
+    )
 
     class Meta:
         model = ChatMessage
-        fields = ('id', 'sender', 'content', 'timestamp')
-        read_only_fields = ('id', 'sender', 'timestamp')
+        fields = ['id', 'room', 'sender', 'content', 'timestamp']
+        # timestamp debe ser de solo lectura. El ViewSet asigna 'sender'.
+        read_only_fields = ['timestamp', 'sender']
 
+
+# --- 3. Serializador de Sala de Chat (Lectura) ---
 class ChatRoomSerializer(serializers.ModelSerializer):
-    """Serializer para la sala de chat, incluyendo la lista de participantes."""
-    # Usamos CustomUserSerializer para serializar los participantes
-    participants = CustomUserSerializer(many=True, read_only=True)
-    # Campo para incluir el ID del usuario con el que se desea chatear al crear una sala
-    target_user_id = serializers.IntegerField(write_only=True, required=False)
+    """
+    Serializador para listar las salas de chat de un usuario.
+    Muestra los IDs de los participantes y la fecha de creación.
+    """
+    # Utiliza el serializador de usuario para mostrar los detalles de los participantes
+    participants = SenderSerializer(many=True, read_only=True)
+    
+    # Campo opcional para mostrar un resumen de la última actividad (último mensaje)
+    last_message = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ChatRoom
-        fields = ('id', 'name', 'participants', 'last_activity', 'target_user_id')
-        read_only_fields = ('id', 'name', 'participants', 'last_activity')
+        fields = ['id', 'participants', 'created_at', 'last_message']
+        read_only_fields = fields
 
-    def create(self, validated_data):
-        """
-        Lógica personalizada para crear o encontrar una sala 1-a-1.
-        """
-        # El usuario que inicia la petición (el solicitante)
-        user = self.context['request'].user 
-        target_user_id = validated_data.pop('target_user_id', None)
-
-        if not target_user_id:
-            raise serializers.ValidationError({"detail": "Se requiere 'target_user_id' para iniciar un chat 1-a-1."})
-
+    def get_last_message(self, obj):
+        """ Obtiene el contenido del último mensaje de esta sala. """
         try:
-            target_user = CustomUser.objects.get(id=target_user_id)
-        except CustomUser.DoesNotExist:
-            raise serializers.ValidationError({"detail": "Usuario objetivo no encontrado."})
-
-        # 1. Buscar si ya existe una sala 1-a-1 entre ellos
-        # Busca una sala que tenga exactamente 2 participantes (solicitante y objetivo)
-        room = ChatRoom.objects.filter(participants=user).filter(participants=target_user).annotate(
-            num_participants=models.Count('participants')
-        ).filter(num_participants=2).first()
-        
-        # 2. Si existe, la devolvemos (aunque DRF crea una nueva, devolveremos la existente)
-        if room:
-            # Una forma simple de forzar la devolución de la sala existente
-            self.instance = room 
-            return room
-
-        # 3. Si no existe, creamos una nueva sala
-        room = ChatRoom.objects.create(**validated_data)
-        room.participants.set([user, target_user]) # Añadimos ambos usuarios
-        return room
+            last_msg = obj.messages.latest('timestamp')
+            # Devolvemos un objeto simple con el contenido y la hora del último mensaje
+            return {
+                'content': last_msg.content,
+                'timestamp': last_msg.timestamp
+            }
+        except ChatMessage.DoesNotExist:
+            return None

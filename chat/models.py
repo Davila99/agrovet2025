@@ -1,75 +1,55 @@
-# chat_app/models.py
 from django.db import models
-# Asegúrate de que esta importación sea correcta
-from auth_app.models import CustomUser 
+from django.contrib.auth import get_user_model
 
-# -----------------
-# 1. Modelo de Sala/Conversación
-# -----------------
+# Obtiene el modelo de usuario activo (CustomUser, User, etc.)
+User = get_user_model()
+
 class ChatRoom(models.Model):
     """
-    Representa una conversación (sala de chat) entre dos o más usuarios.
+    Representa una sala de chat entre dos usuarios o para un grupo.
+    En este ejemplo, crearemos salas de chat de dos personas (consultas).
     """
-    # Participantes de la sala de chat. 
-    # Usamos ManyToManyField para permitir 1:1 o chats grupales.
+    # UsamosManyToManyField para permitir que dos o más usuarios participen.
+    # Usar related_name='chat_rooms' permite acceder a las salas desde el objeto User.
     participants = models.ManyToManyField(
-        CustomUser, 
-        related_name='chat_rooms'
+        User,
+        related_name='chat_rooms',
+        verbose_name="Participantes de la sala"
     )
-    # Nombre opcional para la sala (útil para chats grupales)
-    name = models.CharField(
-        max_length=100, 
-        blank=True, 
-        null=True
-    )
-    # Marca de tiempo para ordenar las salas por la actividad más reciente
-    last_activity = models.DateTimeField(
-        auto_now_add=True 
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        if self.name:
-            return self.name
-        # Muestra los nombres de usuario de los primeros dos participantes
-        usernames = self.participants.values_list('username', flat=True)[:2]
-        return f"Conversación: {', '.join(usernames)}"
+        # Muestra los nombres de usuario de los participantes.
+        return f"Sala ID {self.id} ({', '.join(self.participants.values_list('username', flat=True))})"
 
     class Meta:
-        # Ordena las salas por la actividad más reciente
-        ordering = ('-last_activity',)
+        verbose_name = "Sala de Chat"
+        verbose_name_plural = "Salas de Chat"
 
 
-
-# -----------------
-# 2. Modelo de Mensaje
-# -----------------
 class ChatMessage(models.Model):
     """
-    Representa un mensaje individual dentro de una sala de chat específica.
+    Representa un mensaje enviado en una sala de chat específica.
     """
-    # La sala a la que pertenece este mensaje
     room = models.ForeignKey(
         ChatRoom, 
         on_delete=models.CASCADE, 
-        related_name='messages'
+        related_name='messages', 
+        verbose_name="Sala"
     )
-    # El usuario que envió el mensaje
     sender = models.ForeignKey(
-        CustomUser, 
+        User, 
         on_delete=models.CASCADE, 
-        related_name='sent_messages'
+        related_name='sent_messages',
+        verbose_name="Remitente"
     )
-    # El contenido del mensaje
-    content = models.TextField()
-    # El momento en que se envió el mensaje
-    timestamp = models.DateTimeField(
-        auto_now_add=True
-    )
+    content = models.TextField(verbose_name="Contenido del mensaje")
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Fecha/Hora")
 
     def __str__(self):
-        # Muestra el remitente y un fragmento del mensaje
-        return f"De {self.sender.username}: {self.content[:30]}..."
+        return f"Mensaje de {self.sender.username} en Sala {self.room.id}"
 
     class Meta:
-        # Los mensajes se ordenan cronológicamente
-        ordering = ('timestamp',)
+        ordering = ('timestamp',) # Ordena los mensajes por tiempo
+        verbose_name = "Mensaje de Chat"
+        verbose_name_plural = "Mensajes de Chat"

@@ -1,16 +1,13 @@
-# chat_app/urls.py
-
-from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ChatRoomViewSet
+from django.urls import path, include
+from .views import ChatMessageViewSet
 
+# Inicializa el router de DRF
 router = DefaultRouter()
-router.register(r'rooms', ChatRoomViewSet, basename='chatroom')
 
-urlpatterns = [
-    # Las URLs generadas automáticamente son:
-    # /api/chat/rooms/          -> GET (Listar salas), POST (Crear sala)
-    # /api/chat/rooms/{id}/     -> GET (Detalle de sala)
-    # /api/chat/rooms/{id}/messages/ -> GET (Listar mensajes de la sala)
-    path('', include(router.urls)),
-]
+# Registra el ViewSet. 
+# La base es 'messages' y el 'basename' es necesario para generar nombres de URL.
+router.register(r'messages', ChatMessageViewSet, basename='chat-messages')
+
+# urlpatterns ahora contiene todas las rutas generadas por el router (GET, POST, etc.)
+urlpatterns = router.urls

@@ -4,6 +4,11 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
 from .managers import CustomUserManager # Importación necesaria
+from django.dispatch import receiver
+from auth_app.utils.supabase_utils import delete_image_from_supabase
+from django.db.models.signals import post_delete
+
+
 
 class User(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(
@@ -46,3 +51,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         # Usamos full_name o phone_number ya que 'username' no existe en AbstractBaseUser
         return f"{self.full_name or self.phone_number} ({self.get_role_display() if self.role else 'Sin rol'})"
+    
+# ✅ MOVER ESTE BLOQUE FUERA DE LA CLASE
+@receiver(post_delete, sender=User)
+def delete_user_profile_picture(sender, instance, **kwargs):
+    """
+    Elimina la imagen del bucket de Supabase cuando se elimina el usuario.
+    """
+    if instance.profile_picture:
+        delete_image_from_supabase(instance.profile_picture)

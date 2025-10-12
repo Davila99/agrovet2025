@@ -7,17 +7,8 @@ from auth_app.utils.supabase_utils import upload_image_to_supabase
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'phone_number', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
+        fields = ['id', 'full_name', 'last_name', 'phone_number', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
 
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            'id', 'full_name', 'last_name', 'phone_number', 
-            'role', 'bio', 'profile_picture', 
-            'latitude', 'longitude'
-        ]
-        read_only_fields = ['id', 'profile_picture']
 
 class UserProfileImageUploadSerializer(serializers.Serializer):
     image = serializers.ImageField()
@@ -36,7 +27,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'last_name', 'phone_number', 'password', 'role', 'bio', 'profile_picture']
+        fields = ['id', 'full_name', 'last_name', 'phone_number', 'password', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
 
     def create(self, validated_data):
         image = validated_data.pop('profile_picture', None)  # Extraemos la imagen si viene

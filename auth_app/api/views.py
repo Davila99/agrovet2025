@@ -70,7 +70,6 @@ class UserView(viewsets.ModelViewSet):
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ['full_name', 'last_name', 'phone_number', 'role']
 

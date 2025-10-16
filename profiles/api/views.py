@@ -31,8 +31,24 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         if self.queryset.filter(user=self.request.user).exists():
             raise serializers.ValidationError("Este usuario ya tiene un perfil de este tipo. Utilice PUT o PATCH para actualizarlo.")
         
-        # Guardamos la instancia asignando automáticamente el usuario logueado
-        serializer.save(user=self.request.user)
+        # Guardamos la instancia asignando automaticamente el usuario logueado
+        instance = serializer.save(user=self.request.user)
+
+        # Sincronizar el role del usuario según el tipo de perfil creado
+        try:
+            user = self.request.user
+            if isinstance(instance, SpecialistProfile):
+                user.role = 'Specialist'
+            elif isinstance(instance, BusinessmanProfile):
+                # conservar la convención en minúsculas usada en User.ROLE_CHOICES
+                user.role = 'businessman'
+            elif isinstance(instance, ConsumerProfile):
+                user.role = 'consumer'
+            # Guardar solo el campo role para eficiencia
+            user.save(update_fields=['role'])
+        except Exception:
+            # No fallar la creación del perfil si la sincronización del role falla; registrar/log si es necesario
+            pass
 
 # Vistas específicas para cada tipo de perfil
 

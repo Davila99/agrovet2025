@@ -4,4 +4,6 @@ django-cors-headers
 mysqlclient
 Pillow
 supabase
+drf-yasg
 python-dotenv
+

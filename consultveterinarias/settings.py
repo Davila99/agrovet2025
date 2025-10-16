@@ -1,4 +1,9 @@
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Cargar las variables del archivo .env
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,18 +74,18 @@ WSGI_APPLICATION = 'consultveterinarias.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',  # Cambiar a MySQL
-        'NAME': 'agrovets2025',                 # Nombre de tu base de datos MySQL
-        'USER': 'root',                        # Usuario de MySQL
-        'PASSWORD': 'lazarous0101',                    # Contraseña de MySQL
-        'HOST': '127.0.0.1',                   # o 'localhost'
-        'PORT': '3306',                         # Puerto por defecto de MySQL
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
-
+print("DEBUG:", os.getenv('DEBUG'))
+print("DB_PASSWORD:", os.getenv('DB_PASSWORD'))
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

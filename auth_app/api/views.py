@@ -9,9 +9,10 @@ from .serializers import (
     UserProfileImageUploadSerializer,
     UserRegisterSerializer,
     UserLoginSerializer,
-    UserSerializer
+    UserSerializer,
+    BusinessmanProfileSerializer
 )
-from auth_app.models import User
+from auth_app.models import User,BusinessmanProfile
 from auth_app.utils.supabase_utils import delete_image_from_supabase, upload_image_to_supabase
 
 
@@ -132,3 +133,7 @@ class UserView(viewsets.ModelViewSet):
         return Response({"message": "Usuario eliminado correctamente"}, status=status.HTTP_204_NO_CONTENT)
 
 
+class BusinessmanProfileViewSet(viewsets.ModelViewSet):
+    queryset = BusinessmanProfile.objects.select_related('user').all()  # ⚡ optimiza la consulta
+    serializer_class = BusinessmanProfileSerializer
+    permission_classes = [permissions.AllowAny]

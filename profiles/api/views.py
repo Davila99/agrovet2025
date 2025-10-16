@@ -30,7 +30,36 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         # Antes de crear, verificamos si el perfil ya existe para este usuario
         if self.queryset.filter(user=self.request.user).exists():
             raise serializers.ValidationError("Este usuario ya tiene un perfil de este tipo. Utilice PUT o PATCH para actualizarlo.")
-        
+
+        # Evitar que un usuario tenga más de un tipo de perfil
+        user = self.request.user
+        has_spec = False
+        has_bus = False
+        has_cons = False
+        try:
+            _ = user.specialist_profile
+            has_spec = True
+        except Exception:
+            pass
+        try:
+            _ = user.businessman_profile
+            has_bus = True
+        except Exception:
+            pass
+        try:
+            _ = user.consumer_profile
+            has_cons = True
+        except Exception:
+            pass
+
+        # Si ya tiene otro tipo de perfil distinto al que se intenta crear, bloquear
+        if self.serializer_class == SpecialistProfileSerializer and (has_bus or has_cons):
+            raise serializers.ValidationError("El usuario ya tiene otro tipo de perfil. Sólo se permite un rol por usuario.")
+        if self.serializer_class == BusinessmanProfileSerializer and (has_spec or has_cons):
+            raise serializers.ValidationError("El usuario ya tiene otro tipo de perfil. Sólo se permite un rol por usuario.")
+        if self.serializer_class == ConsumerProfileSerializer and (has_spec or has_bus):
+            raise serializers.ValidationError("El usuario ya tiene otro tipo de perfil. Sólo se permite un rol por usuario.")
+
         # Guardamos la instancia asignando automaticamente el usuario logueado
         instance = serializer.save(user=self.request.user)
 

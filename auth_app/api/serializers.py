@@ -2,12 +2,51 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from auth_app.models import User
 from auth_app.utils.supabase_utils import upload_image_to_supabase
+from profiles.api.serializers import (
+    SpecialistProfileSerializer as SpecialistProfileReadSerializer,
+    BusinessmanProfileSerializer as BusinessmanProfileReadSerializer,
+    ConsumerProfileSerializer as ConsumerProfileReadSerializer,
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
+    specialist_profile = serializers.SerializerMethodField(read_only=True)
+    businessman_profile = serializers.SerializerMethodField(read_only=True)
+    consumer_profile = serializers.SerializerMethodField(read_only=True)
+
+    def get_specialist_profile(self, obj):
+        try:
+            profile = obj.specialist_profile
+        except Exception:
+            return None
+        if profile is None:
+            return None
+        return SpecialistProfileReadSerializer(profile).data
+
+    def get_businessman_profile(self, obj):
+        try:
+            profile = obj.businessman_profile
+        except Exception:
+            return None
+        if profile is None:
+            return None
+        return BusinessmanProfileReadSerializer(profile).data
+
+    def get_consumer_profile(self, obj):
+        try:
+            profile = obj.consumer_profile
+        except Exception:
+            return None
+        if profile is None:
+            return None
+        return ConsumerProfileReadSerializer(profile).data
+
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'last_name', 'phone_number', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
+        fields = [
+            'id', 'full_name', 'last_name', 'phone_number', 'role', 'bio', 'profile_picture', 'latitude', 'longitude',
+            'specialist_profile', 'businessman_profile', 'consumer_profile'
+        ]
 
 
 class UserProfileImageUploadSerializer(serializers.Serializer):

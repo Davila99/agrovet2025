@@ -2,19 +2,14 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from auth_app.models import User
 from auth_app.utils.supabase_utils import upload_image_to_supabase
-from profiles.models import BusinessmanProfile
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'full_name', 'last_name', 'phone_number', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
-class BusinessmanProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)   # 🔹 igual que hiciste con AsignaturaSerializer en el otro ejemplo
 
-    class Meta:
-        model = BusinessmanProfile
-        fields = '__all__'
+
 class UserProfileImageUploadSerializer(serializers.Serializer):
     image = serializers.ImageField()
 

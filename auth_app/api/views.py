@@ -89,6 +89,37 @@ class UserView(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
 
+        # Validar que el cambio de role no entre en conflicto con perfiles existentes
+        new_role = (validated_data.get('role') or None)
+        if new_role is not None:
+            # Chequear perfiles existentes
+            has_spec = False
+            has_bus = False
+            has_cons = False
+            try:
+                _ = instance.specialist_profile
+                has_spec = True
+            except Exception:
+                pass
+            try:
+                _ = instance.businessman_profile
+                has_bus = True
+            except Exception:
+                pass
+            try:
+                _ = instance.consumer_profile
+                has_cons = True
+            except Exception:
+                pass
+
+            role_l = new_role.lower()
+            if role_l == 'specialist' and (has_bus or has_cons):
+                return Response({'role': 'No puede cambiarse a Specialist porque existen perfiles de otro tipo.'}, status=status.HTTP_400_BAD_REQUEST)
+            if role_l == 'businessman' and (has_spec or has_cons):
+                return Response({'role': 'No puede cambiarse a businessman porque existen perfiles de otro tipo.'}, status=status.HTTP_400_BAD_REQUEST)
+            if role_l == 'consumer' and (has_spec or has_bus):
+                return Response({'role': 'No puede cambiarse a consumer porque existen perfiles de otro tipo.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Manejo de imagen de perfil
         image = validated_data.pop('profile_picture', None)
         if image:

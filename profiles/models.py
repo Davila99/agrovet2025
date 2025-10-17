@@ -23,7 +23,9 @@ class SpecialistProfile(models.Model):
     # Nota: Las imágenes se definen en la app 'marketplace'
 
     def __str__(self):
-        return f"Especialista: {self.user.username}"
+        # 'User' personalizado no tiene campo 'username'. Mostrar nombre o teléfono.
+        display = self.user.full_name or self.user.phone_number
+        return f"Especialista: {display}"
 
 class BusinessmanProfile(models.Model):
     """ Detalles del rol Businessman (Dueño de negocio). """
@@ -40,7 +42,8 @@ class BusinessmanProfile(models.Model):
     offers_local_products = models.BooleanField(default=True)
     
     def __str__(self):
-        return f"Negocio: {self.business_name}"
+        display = self.user.full_name or self.user.phone_number
+        return f"Negocio: {self.business_name} ({display})"
 
 class ConsumerProfile(models.Model):
     """ Detalles del rol Consumer (Usuario final). """
@@ -48,4 +51,5 @@ class ConsumerProfile(models.Model):
     # Por ahora, solo contiene la FK a User, pero se mantiene para futuras expansiones.
 
     def __str__(self):
-        return f"Consumer: {self.user.username}"
+        display = self.user.full_name or self.user.phone_number
+        return f"Consumer: {display}"

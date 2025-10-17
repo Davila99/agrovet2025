@@ -39,7 +39,7 @@ class BusinessmanProfile(models.Model):
     contact = models.CharField(max_length=255) # Email o teléfono de contacto del negocio
     
     # Ubicación del negocio
-    location_description = models.CharField(max_length=255, blank=True)
+    # (Removido) location_description anteriormente describía la ubicación del negocio
     
     # Funcionalidades
     offers_local_products = models.BooleanField(default=True)

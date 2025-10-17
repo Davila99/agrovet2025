@@ -33,7 +33,7 @@ class BusinessmanProfileInline(admin.StackedInline):
             'fields': ('business_name', 'descriptions'),
         }),
         ('Ubicación y Contacto', {
-            'fields': ('contact', 'location_description'),
+            'fields': ('contact',),
         }),
         ('Funciones', {
             'fields': ('offers_local_products',),
@@ -103,7 +103,7 @@ class BusinessmanProfileAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Usuario Asociado', {'fields': ('user',)}),
         ('Información del Negocio', {'fields': ('business_name', 'descriptions')}),
-        ('Ubicación y Contacto', {'fields': ('contact', 'location_description')}),
+        ('Ubicación y Contacto', {'fields': ('contact',)}),
         ('Funciones', {'fields': ('offers_local_products',)}),
     )
 

@@ -32,7 +32,7 @@ class BusinessmanProfileSerializer(BaseProfileSerializer):
     class Meta:
         model = BusinessmanProfile
         # Exponemos campos relevantes y protegemos 'user'
-        fields = ['user_display', 'business_name', 'descriptions', 'contact', 'location_description', 'offers_local_products']
+        fields = ['user_display', 'business_name', 'descriptions', 'offers_local_products']
         read_only_fields = ()
 
 

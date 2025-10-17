@@ -62,7 +62,7 @@ class UserProfileImageUploadSerializer(serializers.Serializer):
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    profile_picture = serializers.ImageField(required=False)  # Acepta imagen opcional
+    profile_picture = serializers.ImageField(required=False, allow_null=True, use_url=True)  # Acepta imagen opcional
 
     class Meta:
         model = User
@@ -85,3 +85,19 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 class UserLoginSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer usado solo para actualizaciones de usuario (PUT/PATCH).
+    Hace que password y profile_picture sean opcionales para no requerirlos en updates.
+    """
+    password = serializers.CharField(write_only=True, required=False, allow_null=True)
+    profile_picture = serializers.ImageField(required=False, allow_null=True, use_url=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'last_name', 'phone_number', 'password', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
+
+    def validate_password(self, value):
+        # Si se proporciona password, deberá procesarse (hash) en la vista o en create/update
+        return value

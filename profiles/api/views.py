@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from ..models import SpecialistProfile, BusinessmanProfile, ConsumerProfile # CORRECCIÓN: Se usa '..' para apuntar al directorio padre (profiles)
 from .serializers import (
     SpecialistProfileSerializer,
@@ -84,6 +85,17 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 class SpecialistProfileViewSet(UserProfileViewSet):
     queryset = SpecialistProfile.objects.all()
     serializer_class = SpecialistProfileSerializer
+
+    def create(self, request, *args, **kwargs):
+        """Crear SpecialistProfile asignado al usuario autenticado.
+        Reutiliza la validación del serializer y usa perform_create para coherencia.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Usar perform_create para aprovechar las validaciones adicionales
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=201, headers=headers)
 
 class BusinessmanProfileViewSet(UserProfileViewSet):
     queryset = BusinessmanProfile.objects.all()

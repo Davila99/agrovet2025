@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'corsheaders',
     "chat",
     'drf_yasg',
+    'media'
     
 ]
 
@@ -86,6 +87,8 @@ DATABASES = {
 }
 print("DEBUG:", os.getenv('DEBUG'))
 print("DB_PASSWORD:", os.getenv('DB_PASSWORD'))
+
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

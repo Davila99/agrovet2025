@@ -1,14 +1,27 @@
 from django.conf import settings
 from supabase import create_client
 import re  # ✅ <-- Agregá esta línea
+import uuid
+import time
 
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
+
+def _sanitize_filename(name: str) -> str:
+    # Simple sanitization: remove spaces and unsafe chars
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", name)
+
+
 def upload_image_to_supabase(file_obj, folder="profiles"):
-    file_path = f"{folder}/{file_obj.name}"
+    # Generamos un nombre único para evitar conflictos 409 (resource exists)
+    original_name = getattr(file_obj, 'name', 'file')
+    safe_name = _sanitize_filename(original_name)
+    unique_prefix = f"{int(time.time())}_{uuid.uuid4().hex}"
+    file_path = f"{folder}/{unique_prefix}_{safe_name}"
 
     try:
         # 📤 Subir el archivo a Supabase Storage
+        # Usamos un nombre único generado arriba para evitar errores por recurso ya existente.
         res = supabase.storage.from_(settings.SUPABASE_BUCKET).upload(file_path, file_obj.read())
 
         # ✅ Verificar si hubo error

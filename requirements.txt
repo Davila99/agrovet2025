@@ -4,3 +4,15 @@ django-cors-headers
 mysqlclient
 Pillow
 supabase
+
+# Channels / WebSocket support
+channels
+channels-redis
+
+# Auth / docs / env
+djangorestframework-simplejwt
+drf-yasg
+python-dotenv
+
+# Optional helpers
+requests

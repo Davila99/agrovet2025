@@ -1,4 +1,36 @@
 from rest_framework import serializers
+from chat.models import ChatRoom, ChatMessage
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    sender_username = serializers.CharField(source='sender.username', read_only=True)
+    media_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ChatMessage
+        fields = ('id', 'room', 'sender', 'sender_username', 'content', 'media', 'media_url', 'timestamp')
+        read_only_fields = ('id', 'sender', 'sender_username', 'timestamp')
+
+
+class ChatRoomSerializer(serializers.ModelSerializer):
+    participants_usernames = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ChatRoom
+        fields = ('id', 'name', 'participants', 'participants_usernames', 'is_private', 'created_at', 'last_activity')
+        read_only_fields = ('id', 'created_at', 'last_activity')
+
+    def get_participants_usernames(self, obj):
+        return [u.username for u in obj.participants.all()]
+
+    def get_media_url(self, obj):
+        if obj.media:
+            return obj.media.url
+        return None
+from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from ..models import ChatRoom, ChatMessage
 

@@ -56,15 +56,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.save_message(user, message)
 
             # Envía el mensaje al grupo de la sala (a todos los clientes conectados)
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'chat.message', # Método que manejará el envío (ver abajo)
-                    'message': message,
-                    'username': user.username,
-                    'timestamp': self.get_current_time() # Solo para ejemplo, el cliente puede formatearlo mejor
-                }
-            )
+            # Recuperamos el último mensaje creado para obtener id/media
+            # Guardar mensaje ya fue realizado en save_message
+            from chat.models import ChatMessage
+            last_msg = ChatMessage.objects.filter(room_id=self.room_id, sender=user).order_by('-timestamp').first()
+            payload = {
+                'type': 'chat.message',
+                'message': last_msg.content if last_msg else message,
+                'username': user.username,
+                'timestamp': self.get_current_time()
+            }
+            if last_msg and last_msg.media:
+                payload['media_id'] = last_msg.media.id
+                payload['media_url'] = last_msg.media.url
+
+            await self.channel_layer.group_send(self.room_group_name, payload)
 
     # ----------------------------------------------------
     # 3. Envío de Mensajes (Al Cliente)
@@ -109,13 +115,38 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Si la sala no existe, no hacemos nada (o manejamos el error)
             return
 
-        # 2. Crea el mensaje
+        # 2. Si message es JSON/dict, extraemos content y media_id
+        content = None
+        media_obj = None
+        try:
+            # message puede venir como string JSON
+            if isinstance(message, str):
+                import json as _json
+                parsed = _json.loads(message)
+            else:
+                parsed = message
+
+            content = parsed.get('content') if isinstance(parsed, dict) else str(parsed)
+            media_id = parsed.get('media_id') if isinstance(parsed, dict) else None
+            if media_id:
+                from media.models import Media
+                try:
+                    media_obj = Media.objects.get(id=media_id)
+                except Media.DoesNotExist:
+                    media_obj = None
+        except Exception:
+            # Si no es JSON, tratamos message como texto
+            content = str(message)
+
+        # 3. Crea el mensaje con posible media
         ChatMessage.objects.create(
             room=room,
             sender=user,
-            content=message
+            content=content or '',
+            media=media_obj
         )
-        
-        # 3. Actualiza la marca de tiempo de la última actividad de la sala
-        room.last_activity = F('timestamp') # Usar F-expression para evitar race conditions
+
+        # 4. Actualiza la marca de tiempo de la última actividad de la sala
+        from django.utils import timezone
+        room.last_activity = timezone.now()
         room.save(update_fields=['last_activity'])

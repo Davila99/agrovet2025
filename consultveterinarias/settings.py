@@ -37,8 +37,7 @@ INSTALLED_APPS = [
     'corsheaders',
     "chat",
     'drf_yasg',
-    'media'
-    
+    'media' 
 ]
 
 
@@ -140,5 +139,5 @@ CORS_ALLOWED_ORIGINS = [
 
 ASGI_APPLICATION = 'agrovets.asgi.application' 
 SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
-SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"  # ⚠️ Usa la clave de servicio (no pública)
+SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
 SUPABASE_BUCKET = "agrovet-profile"

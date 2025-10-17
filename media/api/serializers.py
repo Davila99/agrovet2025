@@ -1,0 +1,10 @@
+from rest_framework import serializers
+from media.models import Media
+
+
+class MediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Media
+        # Incluimos content_type y object_id para poder relacionar la media con otro objeto
+        fields = ("id", "name", "description", "price", "url", "created_at", "content_type", "object_id")
+        read_only_fields = ("id", "created_at")

@@ -1,6 +1,8 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from auth_app.models import User  
+from auth_app.models import User
+from django.contrib.contenttypes.fields import GenericRelation
+from media.models import Media
 
 
 class SpecialistProfile(models.Model):
@@ -19,10 +21,11 @@ class SpecialistProfile(models.Model):
     can_give_consultations = models.BooleanField(default=False)
     can_offer_online_services = models.BooleanField(default=False)
     
-    # FK a las imágenes de perfil/portafolio
+    work_images = GenericRelation(Media, related_query_name='specialist_workimages')
     # Nota: Las imágenes se definen en la app 'marketplace'
 
     def __str__(self):
+
         # 'User' personalizado no tiene campo 'username'. Mostrar nombre o teléfono.
         display = self.user.full_name or self.user.phone_number
         return f"Especialista: {display}"
@@ -40,6 +43,9 @@ class BusinessmanProfile(models.Model):
     
     # Funcionalidades
     offers_local_products = models.BooleanField(default=True)
+
+    #Relacion con Media para productos y servicios
+    products_and_services = GenericRelation(Media, related_query_name='businessman_products')
     
     def __str__(self):
         display = self.user.full_name or self.user.phone_number

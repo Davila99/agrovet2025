@@ -75,8 +75,12 @@ class UserView(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         # Si se está creando o actualizando un usuario, usa el serializer con password
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action == 'create':
             return UserRegisterSerializer
+        if self.action in ['update', 'partial_update']:
+            # Serializer para actualizaciones que no obliga a enviar profile_picture ni password
+            from .serializers import UserUpdateSerializer
+            return UserUpdateSerializer
         return UserSerializer
 
     def update(self, request, *args, **kwargs):
@@ -86,8 +90,28 @@ class UserView(viewsets.ModelViewSet):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        validated_data = serializer.validated_data
+        # Hacemos la validación tolerante: si falla solo por 'profile_picture' y no se envió archivo, reintentamos sin ese campo
+        try:
+            serializer.is_valid(raise_exception=True)
+            validated_data = serializer.validated_data
+        except Exception as exc:
+            # Si no hay archivo en request.FILES y el error está en profile_picture, reintentamos sin ese campo
+            files = getattr(request, 'FILES', None)
+            no_file = not files or 'profile_picture' not in files
+            errors = getattr(exc, 'detail', None)
+            has_picture_error = False
+            if isinstance(errors, dict):
+                has_picture_error = 'profile_picture' in errors
+            if no_file and has_picture_error:
+                # volver a validar sin profile_picture
+                data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+                if 'profile_picture' in data:
+                    data.pop('profile_picture')
+                serializer = self.get_serializer(instance, data=data, partial=partial)
+                serializer.is_valid(raise_exception=True)
+                validated_data = serializer.validated_data
+            else:
+                raise
 
         # Validar que el cambio de role no entre en conflicto con perfiles existentes
         new_role = (validated_data.get('role') or None)

@@ -25,8 +25,11 @@ class SpecialistProfile(models.Model):
     # Nota: Las imágenes se definen en la app 'marketplace'
 
     def __str__(self):
+
         return f"Especialista: {self.user.full_name}"
     
+
+
 class BusinessmanProfile(models.Model):
     """ Detalles del rol Businessman (Dueño de negocio). """
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='businessman_profile')
@@ -45,7 +48,8 @@ class BusinessmanProfile(models.Model):
     products_and_services = GenericRelation(Media, related_query_name='businessman_products')
     
     def __str__(self):
-        return f"Negocio: {self.business_name}"
+        display = self.user.full_name or self.user.phone_number
+        return f"Negocio: {self.business_name} ({display})"
 
 class ConsumerProfile(models.Model):
     """ Detalles del rol Consumer (Usuario final). """
@@ -53,4 +57,5 @@ class ConsumerProfile(models.Model):
     # Por ahora, solo contiene la FK a User, pero se mantiene para futuras expansiones.
 
     def __str__(self):
-        return f"Consumer: {self.user.username}"
+        display = self.user.full_name or self.user.phone_number
+        return f"Consumer: {display}"

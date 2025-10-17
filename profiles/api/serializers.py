@@ -1,32 +1,43 @@
 from rest_framework import serializers
 from profiles.models import SpecialistProfile, BusinessmanProfile, ConsumerProfile
 
-class SpecialistProfileSerializer(serializers.ModelSerializer):
-    # Campo de solo lectura para mostrar el nombre de usuario asociado
-    user_username = serializers.CharField(source='user.username', read_only=True)
 
+class BaseProfileSerializer(serializers.ModelSerializer):
+    # Mostrar un identificador legible del usuario (no existe 'username' en User)
+    user_display = serializers.SerializerMethodField(read_only=True)
+
+    def get_user_display(self, obj):
+        return obj.user.full_name or obj.user.phone_number
+
+    def update(self, instance, validated_data):
+        # Actualización superficial segura: solo campos del perfil se actualizan.
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class SpecialistProfileSerializer(BaseProfileSerializer):
     class Meta:
         model = SpecialistProfile
         fields = [
-            'user_username', 'profession', 'experience_years', 'about_us', 
-            'can_give_consultations', 'can_offer_online_services', 
+            'user_display', 'profession', 'experience_years', 'about_us',
+            'can_give_consultations', 'can_offer_online_services',
             'puntuations', 'point',
         ]
-        # 'user' es asignado automáticamente en la vista, y los puntos son calculados
-        read_only_fields = ('user', 'puntuations', 'point') 
+        read_only_fields = ('puntuations', 'point')
 
-class BusinessmanProfileSerializer(serializers.ModelSerializer):
-    user_username = serializers.CharField(source='user.username', read_only=True)
-    
+
+class BusinessmanProfileSerializer(BaseProfileSerializer):
     class Meta:
         model = BusinessmanProfile
-        fields = '__all__'
-        read_only_fields = ('user',)
+        # Exponemos campos relevantes y protegemos 'user'
+        fields = ['user_display', 'business_name', 'descriptions', 'contact', 'location_description', 'offers_local_products']
+        read_only_fields = ()
 
-class ConsumerProfileSerializer(serializers.ModelSerializer):
-    user_username = serializers.CharField(source='user.username', read_only=True)
-    
+
+class ConsumerProfileSerializer(BaseProfileSerializer):
     class Meta:
         model = ConsumerProfile
-        fields = '__all__'
-        read_only_fields = ('user',)
+        fields = ['user_display']
+        read_only_fields = ()

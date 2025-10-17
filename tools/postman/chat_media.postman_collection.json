@@ -1,0 +1,168 @@
+{
+  "info": {
+    "_postman_id": "chat-media-collection",
+    "name": "Chat + Media API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Login (token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone_number\": \"<phone>\",\n  \"password\": \"<password>\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/auth/login/",
+          "protocol": "http",
+          "host": ["127","0","0","1"],
+          "port": "8000",
+          "path": ["api","auth","login",""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Room",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Token {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \n  \"name\": \"Sala prueba\",\n  \"participants\": [2,3],\n  \"is_private\": true\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/chat/rooms/",
+          "protocol": "http",
+          "host": ["127","0","0","1"],
+          "port": "8000",
+          "path": ["api","chat","rooms",""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Upload Media",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Token {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "image",
+              "type": "file",
+              "src": ""
+            },
+            {
+              "key": "name",
+              "value": "test image",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/media/media/",
+          "protocol": "http",
+          "host": ["127","0","0","1"],
+          "port": "8000",
+          "path": ["api","media","media",""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Send Message REST",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Token {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"room\": {{room_id}},\n  \"content\": \"Hola desde REST\",\n  \"media\": {{media_id}}\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/chat/messages/",
+          "protocol": "http",
+          "host": ["127","0","0","1"],
+          "port": "8000",
+          "path": ["api","chat","messages",""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Last Messages",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Token {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/chat/messages/last_messages/?room={{room_id}}&limit=50",
+          "protocol": "http",
+          "host": ["127","0","0","1"],
+          "port": "8000",
+          "path": ["api","chat","messages","last_messages",""],
+          "query": [
+            {
+              "key": "room",
+              "value": "{{room_id}}"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "auth_token",
+      "value": ""
+    },
+    {
+      "key": "room_id",
+      "value": ""
+    },
+    {
+      "key": "media_id",
+      "value": ""
+    }
+  ]
+}

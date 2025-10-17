@@ -11,16 +11,21 @@ class ChatRoom(models.Model):
     """
     # UsamosManyToManyField para permitir que dos o más usuarios participen.
     # Usar related_name='chat_rooms' permite acceder a las salas desde el objeto User.
+    name = models.CharField(max_length=150)
     participants = models.ManyToManyField(
         User,
         related_name='chat_rooms',
         verbose_name="Participantes de la sala"
     )
+    is_private = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         # Muestra los nombres de usuario de los participantes.
-        return f"Sala ID {self.id} ({', '.join(self.participants.values_list('username', flat=True))})"
+        # Evita cargar todos los participantes en string en DB grandes
+        participants_usernames = ', '.join(list(self.participants.values_list('username', flat=True))[:5])
+        return f"Sala ID {self.id} ({participants_usernames})"
 
     class Meta:
         verbose_name = "Sala de Chat"
@@ -43,7 +48,9 @@ class ChatMessage(models.Model):
         related_name='sent_messages',
         verbose_name="Remitente"
     )
-    content = models.TextField(verbose_name="Contenido del mensaje")
+    content = models.TextField(verbose_name="Contenido del mensaje", blank=True)
+    # Relación opcional a Media para imágenes/videos adjuntos
+    media = models.ForeignKey('media.Media', on_delete=models.SET_NULL, null=True, blank=True, related_name='chat_messages')
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Fecha/Hora")
 
     def __str__(self):

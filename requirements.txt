@@ -6,5 +6,10 @@ Pillow
 supabase
 drf-yasg
 python-dotenv
-
+channels
+channels-redis
+djangorestframework-simplejwt
+drf-yasg
+python-dotenv
+requests
 

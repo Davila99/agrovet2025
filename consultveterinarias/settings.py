@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'corsheaders',
     "chat",
     'drf_yasg',
-    'media'
+    'media',
     
 ]
 

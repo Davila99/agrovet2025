@@ -13,6 +13,52 @@ from .serializers import (
 )
 from auth_app.models import User
 from auth_app.utils.supabase_utils import delete_image_from_supabase, upload_image_to_supabase
+from auth_app.models import PhoneResetCode
+from auth_app.utils.sms_utils import send_sms_code
+from .serializers import PhoneResetRequestSerializer, PhoneResetVerifySerializer
+from rest_framework.decorators import api_view
+
+
+@api_view(['POST'])
+def request_password_reset_by_phone(request):
+    serializer = PhoneResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    phone = serializer.validated_data['phone']
+
+    try:
+        user = User.objects.get(phone_number=phone)
+    except User.DoesNotExist:
+        return Response({'detail': 'No user with that phone.'}, status=404)
+
+    import random
+    code = f"{random.randint(100000, 999999):06d}"
+    PhoneResetCode.objects.create(user=user, code=code)
+    try:
+        send_sms_code(phone, code)
+    except Exception as e:
+        return Response({'detail': 'Failed to send SMS', 'error': str(e)}, status=500)
+
+    return Response({'detail': 'Código enviado al número registrado.'})
+
+
+@api_view(['POST'])
+def verify_code_and_reset_password(request):
+    serializer = PhoneResetVerifySerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    phone = serializer.validated_data['phone']
+    code = serializer.validated_data['code']
+    new_password = serializer.validated_data['new_password']
+
+    reset = PhoneResetCode.objects.filter(user__phone_number=phone, code=code).order_by('-created_at').first()
+    if not reset or not reset.is_valid():
+        return Response({'detail': 'Código inválido o expirado.'}, status=400)
+
+    user = reset.user
+    user.set_password(new_password)
+    user.save()
+    # opcional: eliminar los códigos usados
+    PhoneResetCode.objects.filter(user=user).delete()
+    return Response({'detail': 'Contraseña actualizada correctamente.'})
 
 
 

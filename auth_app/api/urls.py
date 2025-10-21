@@ -11,6 +11,10 @@ urlpatterns = [
     path('', include(router.urls)),
     path('upload-profile-picture/', UploadProfilePictureView.as_view(), name='upload-profile-picture'),
     path('password-reset/request/', request_password_reset_by_phone, name='password-reset-request'),
+    # backward-compatible alias used by some frontends
+    path('password-reset/request-phone/', request_password_reset_by_phone, name='password-reset-request-phone'),
     path('password-reset/verify/', verify_code_and_reset_password, name='password-reset-verify'),
+    # backward-compatible alias used by some frontends
+    path('password-reset/verify-phone/', verify_code_and_reset_password, name='password-reset-verify-phone'),
 ]
 

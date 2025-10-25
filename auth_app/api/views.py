@@ -6,11 +6,16 @@ from django.contrib.auth import authenticate
 from .serializers import UserProfileImageUploadSerializer, UserRegisterSerializer, UserLoginSerializer, UserSerializer
 from auth_app.models import User
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 
 
 class RegisterViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserRegisterSerializer
+    # Allow anonymous registration without CSRF/session auth for API clients
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -24,6 +29,9 @@ class RegisterViewSet(viewsets.ModelViewSet):
 
 
 class LoginViewSet(viewsets.ViewSet):
+    # Disable default session authentication to avoid CSRF requirement on login
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
     def create(self, request):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -58,3 +66,21 @@ class UploadProfilePictureView(APIView):
 class UserView(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def test_token_view(request):
+    """Dev helper: POST {"phone_number": "..."} returns/creates a token for that user.
+
+    WARNING: development helper only. Do not expose in production.
+    """
+    phone = request.data.get('phone_number')
+    if not phone:
+        return Response({'error': 'phone_number required'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        user = User.objects.get(phone_number=phone)
+    except User.DoesNotExist:
+        return Response({'error': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({'token': token.key, 'user': UserSerializer(user).data})

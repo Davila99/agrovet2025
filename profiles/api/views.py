@@ -8,6 +8,13 @@ from .serializers import (
     BusinessmanProfileSerializer,
     ConsumerProfileSerializer
 )
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.contenttypes.models import ContentType
+from media.api.serializers import MediaSerializer
+from auth_app.utils.supabase_utils import upload_image_to_supabase
+from media.models import Media
 
 # Clase base que implementa la lógica de seguridad para perfiles 1-a-1.
 class UserProfileViewSet(viewsets.ModelViewSet):
@@ -86,6 +93,7 @@ class SpecialistProfileViewSet(UserProfileViewSet):
     queryset = SpecialistProfile.objects.all()
     serializer_class = SpecialistProfileSerializer
 
+
     def create(self, request, *args, **kwargs):
         """Crear SpecialistProfile asignado al usuario autenticado.
         Reutiliza la validación del serializer y usa perform_create para coherencia.
@@ -95,7 +103,27 @@ class SpecialistProfileViewSet(UserProfileViewSet):
         # Usar perform_create para aprovechar las validaciones adicionales
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=201, headers=headers)
+
+    @action(detail=True, methods=['post'])
+    def upload_work_images(self, request, pk=None):
+        """Upload one or multiple images for this specialist profile.
+        multipart/form-data with key 'images' as multiple files.
+        """
+        profile = self.get_object()
+        files = request.FILES.getlist('images') or [request.FILES.get('image')] if request.FILES.get('image') else []
+        if not files:
+            return Response({'detail': 'No files provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        ct = ContentType.objects.get_for_model(SpecialistProfile)
+
+        for f in files:
+            url = upload_image_to_supabase(f, folder='media')
+            m = Media.objects.create(name=f.name, description=request.data.get('description',''), url=url, content_type=ct, object_id=profile.pk)
+            created.append(m)
+
+        serializer = MediaSerializer(created, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class BusinessmanProfileViewSet(UserProfileViewSet):
     queryset = BusinessmanProfile.objects.all()

@@ -4,7 +4,7 @@ django-cors-headers
 mysqlclient
 Pillow
 supabase
-
+pymysql
 # Channels / WebSocket support
 channels
 channels-redis

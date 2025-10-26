@@ -70,7 +70,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         image = validated_data.pop('profile_picture', None)  # Extraemos la imagen si viene
-        validated_data['password'] = make_password(validated_data['password'])
+        
 
         user = User.objects.create(**validated_data)
 

@@ -25,7 +25,14 @@ class ChatRoom(models.Model):
     def __str__(self):
         # Muestra los nombres de usuario de los participantes.
         # Evita cargar todos los participantes en string en DB grandes
-        participants_usernames = ', '.join(list(self.participants.values_list('username', flat=True))[:5])
+        def _display(u):
+            return getattr(u, 'username', None) or getattr(u, 'full_name', None) or getattr(u, 'phone_number', None) or str(u)
+        # build a short representation safely
+        try:
+            parts = list(self.participants.all()[:5])
+            participants_usernames = ', '.join([_display(u) for u in parts])
+        except Exception:
+            participants_usernames = ''
         return f"Sala ID {self.id} ({participants_usernames})"
 
     class Meta:
@@ -52,8 +59,11 @@ def get_or_create_private_chat(user1, user2):
         return chats.first(), False
 
     # Si no existe, la crea
+    # Build a safe readable name using available attributes
+    def _disp(u):
+        return getattr(u, 'username', None) or getattr(u, 'full_name', None) or getattr(u, 'phone_number', None) or str(u)
     chat = ChatRoom.objects.create(
-        name=f"Chat: {user1.username} & {user2.username}",
+        name=f"Chat: {_disp(user1)} & {_disp(user2)}",
         is_private=True
     )
     chat.participants.set([user1, user2])

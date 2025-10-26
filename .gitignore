@@ -21,10 +21,10 @@ db.sqlite3-journal
 # Distribution / packaging
 .Python
 build/
-frontend/
 develop-eggs/
 dist/
 downloads/
+frontend/
 eggs/
 .eggs/
 lib/

@@ -6,5 +6,6 @@ Pillow
 supabase
 drf-yasg
 python-dotenv
+twilio
 
 

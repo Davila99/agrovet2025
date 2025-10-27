@@ -7,6 +7,8 @@ from .managers import CustomUserManager # Importación necesaria
 from django.dispatch import receiver
 from auth_app.utils.supabase_utils import delete_image_from_supabase
 from django.db.models.signals import post_delete
+from django.conf import settings
+from datetime import timedelta
 
 
 
@@ -60,3 +62,19 @@ def delete_user_profile_picture(sender, instance, **kwargs):
     """
     if instance.profile_picture:
         delete_image_from_supabase(instance.profile_picture)
+
+
+class PhoneResetCode(models.Model):
+    """Códigos temporales enviados por SMS para recuperar/actualizar contraseña vía número de teléfono."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='phone_reset_codes')
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['code', 'created_at'])]
+
+    def is_valid(self):
+        return timezone.now() < self.created_at + timedelta(minutes=10)
+
+    def __str__(self):
+        return f"PhoneResetCode(user={self.user}, code={self.code})"

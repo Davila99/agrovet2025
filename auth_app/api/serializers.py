@@ -101,3 +101,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     def validate_password(self, value):
         # Si se proporciona password, deberá procesarse (hash) en la vista o en create/update
         return value
+
+
+class PhoneResetRequestSerializer(serializers.Serializer):
+    phone = serializers.CharField()
+
+
+class PhoneResetVerifySerializer(serializers.Serializer):
+    phone = serializers.CharField()
+    code = serializers.CharField()
+    new_password = serializers.CharField()

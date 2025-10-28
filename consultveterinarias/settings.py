@@ -35,10 +35,10 @@ INSTALLED_APPS = [
     'auth_app',
     'profiles',
     'corsheaders',
+    'channels',
     "chat",
     'drf_yasg',
-    'media',
-    
+    'media' 
 ]
 
 
@@ -132,13 +132,37 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Django REST Framework configuration - prefer TokenAuthentication first so
+# browser requests that include an Authorization: Token <key> header are
+# authenticated by token and don't get blocked by SessionAuthentication CSRF checks.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app",    # deploy (sin / al final)
 ]
 
-ASGI_APPLICATION = 'agrovets.asgi.application' 
+# Use the chat.asgi application which installs the QueryAuthMiddlewareStack
+# so websocket connections can be authenticated via ?token=<key>
+ASGI_APPLICATION = 'chat.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
-SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"  # ⚠️ Usa la clave de servicio (no pública)
+SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
 SUPABASE_BUCKET = "agrovet-profile"

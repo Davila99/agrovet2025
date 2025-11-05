@@ -90,36 +90,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
         return user
 
-    def validate_role(self, value):
-        if value in (None, ''):
-            return value
-        # Normalizar valores entrantes para evitar errores por mayúsculas/minúsculas
-        mapping = {
-            'specialist': 'Specialist',
-            'businessman': 'businessman',
-            'consumer': 'consumer',
-        }
-        try:
-            return mapping.get(value.lower(), value)
-        except Exception:
-            return value
-
-    def validate_phone_number(self, value):
-        # Limpieza básica: eliminar espacios y dejar '+' si existe
-        if not isinstance(value, str):
-            raise serializers.ValidationError('Ingrese un número válido')
-        s = value.strip()
-        # conservar '+' inicial y dígitos
-        if s.startswith('+'):
-            digits = '+' + ''.join(ch for ch in s[1:] if ch.isdigit())
-        else:
-            digits = ''.join(ch for ch in s if ch.isdigit())
-
-        if not digits or len(digits.replace('+', '')) < 7:
-            raise serializers.ValidationError('Ingrese un número válido')
-
-        return digits
-
 class UserLoginSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
     password = serializers.CharField(write_only=True)

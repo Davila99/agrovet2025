@@ -133,18 +133,6 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Django REST Framework configuration - prefer TokenAuthentication first so
-# browser requests that include an Authorization: Token <key> header are
-# authenticated by token and don't get blocked by SessionAuthentication CSRF checks.
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    ),
-}
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [

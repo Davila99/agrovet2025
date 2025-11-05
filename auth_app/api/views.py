@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 
 from .serializers import (
     UserProfileImageUploadSerializer,
@@ -65,6 +67,9 @@ def verify_code_and_reset_password(request):
 class RegisterViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserRegisterSerializer
+    # Allow anonymous registration without CSRF/session auth for API clients
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -78,6 +83,9 @@ class RegisterViewSet(viewsets.ModelViewSet):
 
 
 class LoginViewSet(viewsets.ViewSet):
+    # Disable default session authentication to avoid CSRF requirement on login
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
     def create(self, request):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -116,6 +124,7 @@ class UserView(viewsets.ModelViewSet):
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
     filter_backends = [filters.SearchFilter]
     search_fields = ['full_name', 'last_name', 'phone_number', 'role']
 
@@ -233,3 +242,20 @@ class UserView(viewsets.ModelViewSet):
         return Response({"message": "Usuario eliminado correctamente"}, status=status.HTTP_204_NO_CONTENT)
 
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def test_token_view(request):
+    """Dev helper: POST {"phone_number": "..."} returns/creates a token for that user.
+
+    WARNING: development helper only. Do not expose in production.
+    """
+    phone = request.data.get('phone_number')
+    if not phone:
+        return Response({'error': 'phone_number required'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        user = User.objects.get(phone_number=phone)
+    except User.DoesNotExist:
+        return Response({'error': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({'token': token.key, 'user': UserSerializer(user).data})

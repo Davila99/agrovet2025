@@ -13,7 +13,7 @@ class SpecialistProfile(models.Model):
     experience_years = models.IntegerField(default=0)
     about_us = models.TextField(blank=True, verbose_name="Detalles/Acerca de")
     
-    # Puntuaciones
+    # Puntuación y reseñas
     puntuations = models.FloatField(default=0.0)
     point = models.IntegerField(default=0)
 
@@ -22,7 +22,6 @@ class SpecialistProfile(models.Model):
     can_offer_online_services = models.BooleanField(default=False)
     
     work_images = GenericRelation(Media, related_query_name='specialist_workimages')
-    # Nota: Las imágenes se definen en la app 'marketplace'
 
     def __str__(self):
 

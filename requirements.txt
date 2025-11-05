@@ -7,5 +7,11 @@ supabase
 drf-yasg
 python-dotenv
 twilio
-
+pymysql
+channels
+channels-redis
+djangorestframework-simplejwt
+drf-yasg
+python-dotenv
+requests
 

@@ -69,18 +69,56 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'last_name', 'phone_number', 'password', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
 
     def create(self, validated_data):
-        image = validated_data.pop('profile_picture', None)  # Extraemos la imagen si viene
-        
+        image = validated_data.pop('profile_picture', None)
+        password = validated_data.pop('password', None)
 
-        user = User.objects.create(**validated_data)
+        # Asegurarnos de usar el manager para que el password quede hasheado
+        phone_number = validated_data.pop('phone_number', None)
+
+        # Crear usuario usando create_user para mantener la lógica del manager
+        user = User.objects.create_user(phone_number=phone_number, password=password, **validated_data)
 
         if image:
-            # Subimos a Supabase y guardamos la URL
-            url = upload_image_to_supabase(image, folder="profiles")
-            user.profile_picture = url
-            user.save()
+            try:
+                url = upload_image_to_supabase(image, folder="profiles")
+                if url:
+                    user.profile_picture = url
+                    user.save()
+            except Exception:
+                # No abortamos el registro por fallo de upload; dejamos sin imagen y registramos el error
+                pass
 
         return user
+
+    def validate_role(self, value):
+        if value in (None, ''):
+            return value
+        # Normalizar valores entrantes para evitar errores por mayúsculas/minúsculas
+        mapping = {
+            'specialist': 'Specialist',
+            'businessman': 'businessman',
+            'consumer': 'consumer',
+        }
+        try:
+            return mapping.get(value.lower(), value)
+        except Exception:
+            return value
+
+    def validate_phone_number(self, value):
+        # Limpieza básica: eliminar espacios y dejar '+' si existe
+        if not isinstance(value, str):
+            raise serializers.ValidationError('Ingrese un número válido')
+        s = value.strip()
+        # conservar '+' inicial y dígitos
+        if s.startswith('+'):
+            digits = '+' + ''.join(ch for ch in s[1:] if ch.isdigit())
+        else:
+            digits = ''.join(ch for ch in s if ch.isdigit())
+
+        if not digits or len(digits.replace('+', '')) < 7:
+            raise serializers.ValidationError('Ingrese un número válido')
+
+        return digits
 
 class UserLoginSerializer(serializers.Serializer):
     phone_number = serializers.CharField()

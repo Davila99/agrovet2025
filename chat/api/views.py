@@ -116,7 +116,12 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         Expects JSON: { "participants_ids": [id1, id2] }
         Returns the chat room object (200) or 400 on validation error.
         """
+        logger = logging.getLogger(__name__)
         data = request.data or {}
+        try:
+            logger.info(f"get_or_create_private called. user={getattr(request,'user',None)} auth={request.META.get('HTTP_AUTHORIZATION')} data={data}")
+        except Exception:
+            pass
         participants = data.get('participants_ids') or data.get('participants')
         if not participants or not isinstance(participants, (list, tuple)) or len(participants) != 2:
             return Response({'detail': 'Se requieren exactamente 2 participantes.'}, status=status.HTTP_400_BAD_REQUEST)

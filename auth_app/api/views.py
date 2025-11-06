@@ -1,13 +1,67 @@
-from rest_framework import viewsets, status, permissions
+# auth_app/views.py
+from rest_framework import viewsets, status, permissions, filters
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
-
-from .serializers import UserProfileImageUploadSerializer, UserRegisterSerializer, UserLoginSerializer, UserSerializer
-from auth_app.models import User
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+
+from .serializers import (
+    UserProfileImageUploadSerializer,
+    UserRegisterSerializer,
+    UserLoginSerializer,
+    UserSerializer
+)
+from auth_app.models import User
+from auth_app.utils.supabase_utils import delete_image_from_supabase, upload_image_to_supabase
+from auth_app.models import PhoneResetCode
+from auth_app.utils.sms_utils import send_sms_code
+from .serializers import PhoneResetRequestSerializer, PhoneResetVerifySerializer
+from rest_framework.decorators import api_view
+
+
+@api_view(['POST'])
+def request_password_reset_by_phone(request):
+    serializer = PhoneResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    phone = serializer.validated_data['phone']
+
+    try:
+        user = User.objects.get(phone_number=phone)
+    except User.DoesNotExist:
+        return Response({'detail': 'No user with that phone.'}, status=404)
+
+    import random
+    code = f"{random.randint(100000, 999999):06d}"
+    PhoneResetCode.objects.create(user=user, code=code)
+    try:
+        send_sms_code(phone, code)
+    except Exception as e:
+        return Response({'detail': 'Failed to send SMS', 'error': str(e)}, status=500)
+
+    return Response({'detail': 'Código enviado al número registrado.'})
+
+
+@api_view(['POST'])
+def verify_code_and_reset_password(request):
+    serializer = PhoneResetVerifySerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    phone = serializer.validated_data['phone']
+    code = serializer.validated_data['code']
+    new_password = serializer.validated_data['new_password']
+
+    reset = PhoneResetCode.objects.filter(user__phone_number=phone, code=code).order_by('-created_at').first()
+    if not reset or not reset.is_valid():
+        return Response({'detail': 'Código inválido o expirado.'}, status=400)
+
+    user = reset.user
+    user.set_password(new_password)
+    user.save()
+    # opcional: eliminar los códigos usados
+    PhoneResetCode.objects.filter(user=user).delete()
+    return Response({'detail': 'Contraseña actualizada correctamente.'})
+
 
 
 class RegisterViewSet(viewsets.ModelViewSet):
@@ -64,8 +118,129 @@ class UploadProfilePictureView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserView(viewsets.ModelViewSet):
+    """
+    CRUD completo para el modelo User.
+    Permite listar, crear, editar, eliminar y ver detalles de usuarios.
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['full_name', 'last_name', 'phone_number', 'role']
+
+    def get_serializer_class(self):
+        # Si se está creando o actualizando un usuario, usa el serializer con password
+        if self.action == 'create':
+            return UserRegisterSerializer
+        if self.action in ['update', 'partial_update']:
+            # Serializer para actualizaciones que no obliga a enviar profile_picture ni password
+            from .serializers import UserUpdateSerializer
+            return UserUpdateSerializer
+        return UserSerializer
+
+    def update(self, request, *args, **kwargs):
+        """
+        Actualiza datos de usuario y reemplaza imagen de perfil en Supabase si se envía una nueva.
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        # Hacemos la validación tolerante: si falla solo por 'profile_picture' y no se envió archivo, reintentamos sin ese campo
+        try:
+            serializer.is_valid(raise_exception=True)
+            validated_data = serializer.validated_data
+        except Exception as exc:
+            # Si no hay archivo en request.FILES y el error está en profile_picture, reintentamos sin ese campo
+            files = getattr(request, 'FILES', None)
+            no_file = not files or 'profile_picture' not in files
+            errors = getattr(exc, 'detail', None)
+            has_picture_error = False
+            if isinstance(errors, dict):
+                has_picture_error = 'profile_picture' in errors
+            if no_file and has_picture_error:
+                # volver a validar sin profile_picture
+                data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+                if 'profile_picture' in data:
+                    data.pop('profile_picture')
+                serializer = self.get_serializer(instance, data=data, partial=partial)
+                serializer.is_valid(raise_exception=True)
+                validated_data = serializer.validated_data
+            else:
+                raise
+
+        # Validar que el cambio de role no entre en conflicto con perfiles existentes
+        new_role = (validated_data.get('role') or None)
+        if new_role is not None:
+            # Chequear perfiles existentes
+            has_spec = False
+            has_bus = False
+            has_cons = False
+            try:
+                _ = instance.specialist_profile
+                has_spec = True
+            except Exception:
+                pass
+            try:
+                _ = instance.businessman_profile
+                has_bus = True
+            except Exception:
+                pass
+            try:
+                _ = instance.consumer_profile
+                has_cons = True
+            except Exception:
+                pass
+
+            role_l = new_role.lower()
+            if role_l == 'specialist' and (has_bus or has_cons):
+                return Response({'role': 'No puede cambiarse a Specialist porque existen perfiles de otro tipo.'}, status=status.HTTP_400_BAD_REQUEST)
+            if role_l == 'businessman' and (has_spec or has_cons):
+                return Response({'role': 'No puede cambiarse a businessman porque existen perfiles de otro tipo.'}, status=status.HTTP_400_BAD_REQUEST)
+            if role_l == 'consumer' and (has_spec or has_bus):
+                return Response({'role': 'No puede cambiarse a consumer porque existen perfiles de otro tipo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Manejo de imagen de perfil
+        image = validated_data.pop('profile_picture', None)
+        if image:
+            from auth_app.utils.supabase_utils import upload_image_to_supabase, delete_image_from_supabase
+
+            # Si el usuario ya tiene imagen, eliminar la anterior
+            if instance.profile_picture:
+                try:
+                    old_image_path = instance.profile_picture.split("/")[-1]
+                    delete_image_from_supabase(f"profiles/{old_image_path}")
+                except Exception as e:
+                    print("⚠️ Error eliminando imagen anterior:", e)
+
+            # Subir la nueva imagen
+            url = upload_image_to_supabase(image, folder="profiles")
+            if url:
+                instance.profile_picture = url
+
+        # Actualizar otros campos
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return Response(UserSerializer(instance).data, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Elimina un usuario y también su imagen de Supabase si existe.
+        """
+        instance = self.get_object()
+
+        if instance.profile_picture:
+            try:
+                old_image_path = instance.profile_picture.split("/")[-1]
+                from auth_app.utils.supabase_utils import delete_image_from_supabase
+                delete_image_from_supabase(f"profiles/{old_image_path}")
+            except Exception as e:
+                print("⚠️ Error eliminando imagen al borrar usuario:", e)
+
+        self.perform_destroy(instance)
+        return Response({"message": "Usuario eliminado correctamente"}, status=status.HTTP_204_NO_CONTENT)
+
 
 
 @api_view(['POST'])

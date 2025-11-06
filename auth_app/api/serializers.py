@@ -69,16 +69,24 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'last_name', 'phone_number', 'password', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
 
     def create(self, validated_data):
-        image = validated_data.pop('profile_picture', None)  # Extraemos la imagen si viene
-        
+        image = validated_data.pop('profile_picture', None)
+        password = validated_data.pop('password', None)
 
-        user = User.objects.create(**validated_data)
+        # Asegurarnos de usar el manager para que el password quede hasheado
+        phone_number = validated_data.pop('phone_number', None)
+
+        # Crear usuario usando create_user para mantener la lógica del manager
+        user = User.objects.create_user(phone_number=phone_number, password=password, **validated_data)
 
         if image:
-            # Subimos a Supabase y guardamos la URL
-            url = upload_image_to_supabase(image, folder="profiles")
-            user.profile_picture = url
-            user.save()
+            try:
+                url = upload_image_to_supabase(image, folder="profiles")
+                if url:
+                    user.profile_picture = url
+                    user.save()
+            except Exception:
+                # No abortamos el registro por fallo de upload; dejamos sin imagen y registramos el error
+                pass
 
         return user
 

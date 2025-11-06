@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Cargar las variables del archivo .env
 load_dotenv()
@@ -38,7 +39,8 @@ INSTALLED_APPS = [
     'channels',
     "chat",
     'drf_yasg',
-    'media' 
+    'media',
+
 ]
 
 
@@ -137,11 +139,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # authenticated by token and don't get blocked by SessionAuthentication CSRF checks.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        # Accept both Bearer and Token schemes (BearerTokenAuthentication is a small subclass)
+        'auth_app.api.authentication.BearerTokenAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
+    # For development ease we allow anonymous access by default.
+    # Change to IsAuthenticated in production.
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     ),
 }
 
@@ -150,6 +156,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app",    # deploy (sin / al final)
 ]
+
+# Allow the Authorization header for cross-origin requests (useful in dev)
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+]
+# If you need to send cookies for session auth from the frontend, enable this
+CORS_ALLOW_CREDENTIALS = True
 
 # Use the chat.asgi application which installs the QueryAuthMiddlewareStack
 # so websocket connections can be authenticated via ?token=<key>

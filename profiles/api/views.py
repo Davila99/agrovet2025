@@ -93,6 +93,17 @@ class SpecialistProfileViewSet(UserProfileViewSet):
     queryset = SpecialistProfile.objects.all()
     serializer_class = SpecialistProfileSerializer
 
+
+    def create(self, request, *args, **kwargs):
+        """Crear SpecialistProfile asignado al usuario autenticado.
+        Reutiliza la validación del serializer y usa perform_create para coherencia.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Usar perform_create para aprovechar las validaciones adicionales
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
     @action(detail=True, methods=['post'])
     def upload_work_images(self, request, pk=None):
         """Upload one or multiple images for this specialist profile.

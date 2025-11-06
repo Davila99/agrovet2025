@@ -160,9 +160,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 frontend/agrovet/
-requirements.txt
 chat/asgi.py
 consultveterinarias/__init__.py
-requirements.txt
-chat/asgi.py
 chat/asgi.py

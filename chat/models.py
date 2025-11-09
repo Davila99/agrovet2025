@@ -91,6 +91,8 @@ class ChatMessage(models.Model):
     # Relación opcional a Media para imágenes/videos adjuntos
     media = models.ForeignKey('media.Media', on_delete=models.SET_NULL, null=True, blank=True, related_name='chat_messages')
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Fecha/Hora")
+    # Whether the message has been created/sent by the sender (server-side flag)
+    sent = models.BooleanField(default=True, verbose_name="Enviado")
     # Whether the message has been delivered to recipients. For 1:1 chats
     # this is sufficient. For group chats consider per-user delivery tracking.
     delivered = models.BooleanField(default=False, verbose_name="Entregado")
@@ -98,7 +100,9 @@ class ChatMessage(models.Model):
     delivered_at = models.DateTimeField(null=True, blank=True, verbose_name="Fecha/Hora entrega")
     # Aggregate read state: True when all recipients have read the message
     read = models.BooleanField(default=False, verbose_name="Leído")
-    # Timestamp when the message was first considered read by all recipients
+    # New alias/flag for compatibility with the frontend naming: seen == read
+    seen = models.BooleanField(default=False, verbose_name="Visto")
+    # Timestamp when the message was first considered read/seen by all recipients
     read_at = models.DateTimeField(null=True, blank=True, verbose_name="Fecha/Hora lectura")
 # Keep ChatMessage metadata and helpers below
     

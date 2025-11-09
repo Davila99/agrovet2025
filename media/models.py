@@ -10,8 +10,10 @@ class Media(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0.00)
     url = models.URLField(max_length=500, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
+    # Make the generic relation optional so Media can exist standalone
+    # (uploaded to Supabase) and later be attached to other models such as ChatMessage.
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
     content_object = GenericForeignKey('content_type', 'object_id')
 
     def __str__(self):

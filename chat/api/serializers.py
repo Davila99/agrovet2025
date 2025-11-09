@@ -128,7 +128,7 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             if len(participants) != 2:
                 return obj.name or None
             other = participants[0] if participants[1].id == user.id else participants[1]
-            return getattr(other, 'full_name', None) or getattr(other, 'phone_number', None) or getattr(other, 'username', None)
+            return getattr(other, 'full_name', None) or getattr(other, 'phone_number', None)
         except Exception:
             return None
 
@@ -156,7 +156,7 @@ class ChatRoomSerializer(serializers.ModelSerializer):
                                 other = participants[0]
                         else:
                             other = participants[1]
-                        display = getattr(other, 'full_name', None) or getattr(other, 'phone_number', None) or getattr(other, 'username', None)
+                        display = getattr(other, 'full_name', None) or getattr(other, 'phone_number', None)
                         if display:
                             room.name = display
                             room.save(update_fields=['name'])

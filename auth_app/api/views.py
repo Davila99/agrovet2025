@@ -159,7 +159,11 @@ class UserView(viewsets.ModelViewSet):
                 has_picture_error = 'profile_picture' in errors
             if no_file and has_picture_error:
                 # volver a validar sin profile_picture
-                data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+                # Avoid deepcopy of file-like objects; build a shallow dict instead
+                try:
+                    data = {k: v for k, v in request.data.items()}
+                except Exception:
+                    data = {}
                 if 'profile_picture' in data:
                     data.pop('profile_picture')
                 serializer = self.get_serializer(instance, data=data, partial=partial)

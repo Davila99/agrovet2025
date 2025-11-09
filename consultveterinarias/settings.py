@@ -85,6 +85,12 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT', '3306'),
+        # Ensure connections use utf8mb4 so 4-byte unicode (emoji) is supported.
+        # This is the preferred permanent fix for emoji/storage issues.
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
+        },
     }
 }
 print("DEBUG:", os.getenv('DEBUG'))
@@ -179,3 +185,17 @@ CHANNEL_LAYERS = {
 SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
 SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
 SUPABASE_BUCKET = "agrovet-profile"
+
+
+# Simple logging configuration for development to surface chat events
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'INFO'},
+        'chat': {'handlers': ['console'], 'level': 'DEBUG'},
+    },
+}

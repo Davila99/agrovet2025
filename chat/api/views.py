@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 import logging
 from rest_framework.decorators import action
+from django.db import DatabaseError, IntegrityError, DataError
 
 from chat.models import ChatRoom, ChatMessage, get_or_create_private_chat
 from chat.api.serializers import ChatRoomSerializer, ChatMessageSerializer
@@ -25,27 +26,13 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         auth_hdr = request.META.get('HTTP_AUTHORIZATION')
         logger.info(f"ChatRoom create called. Authorization header: {auth_hdr}")
         logger.info(f"request.user={request.user!r}, is_authenticated={getattr(request.user,'is_authenticated',False)} request.auth={getattr(request,'auth',None)}")
-        # Dump incoming raw body for debugging
-        try:
-            print(f"[ChatRoomViewSet] raw_body={request.body}")
-        except Exception:
-            pass
-        try:
-            print(f"[ChatRoomViewSet] request.data={request.data}")
-        except Exception:
-            pass
-        # Create serializer and validate explicitly so we can print serializer state
+        # Log incoming payload at debug level (avoid noisy prints)
+        logger.debug('[ChatRoomViewSet] raw_body=%s', getattr(request, 'body', None))
+        logger.debug('[ChatRoomViewSet] request.data=%s', getattr(request, 'data', None))
+        # Create serializer and validate explicitly
         serializer = self.get_serializer(data=request.data)
-        try:
-            print(f"[ChatRoomViewSet] serializer fields={list(serializer.fields.keys())}")
-        except Exception:
-            pass
-
         is_valid = serializer.is_valid()
-        try:
-            print(f"[ChatRoomViewSet] is_valid={is_valid} errors={serializer.errors} validated_data={getattr(serializer, 'validated_data', None)}")
-        except Exception:
-            pass
+        logger.debug('[ChatRoomViewSet] is_valid=%s errors=%s', is_valid, getattr(serializer, 'errors', None))
 
         if not is_valid:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -86,11 +73,8 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         is_private = serializer.validated_data.get('is_private', True)
 
         # debug print validated participants
-        try:
-            print(f"[ChatRoomViewSet] validated_data keys={list(serializer.validated_data.keys())}")
-            print(f"[ChatRoomViewSet] participants={participants}")
-        except Exception:
-            pass
+        logger = logging.getLogger(__name__)
+        logger.debug('[ChatRoomViewSet] validated_data keys=%s participants=%s', list(serializer.validated_data.keys()), participants)
 
         if is_private:
             if not isinstance(participants, (list, tuple)) or len(participants) != 2:
@@ -152,7 +136,39 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         auth_hdr = request.META.get('HTTP_AUTHORIZATION')
         logger.info(f"ChatMessage create called. Authorization header: {auth_hdr}")
         logger.info(f"request.user={request.user!r}, is_authenticated={getattr(request.user,'is_authenticated',False)} request.auth={getattr(request,'auth',None)}")
-        return super().create(request, *args, **kwargs)
+        # Log incoming raw body and request data at debug level
+        logger.debug('[ChatMessageViewSet] raw_body=%s', getattr(request, 'body', None))
+        logger.debug('[ChatMessageViewSet] request.data=%s', getattr(request, 'data', None))
+
+        # Use request.data directly now that the DB has been migrated to utf8mb4
+        # so emojis / 4-byte unicode characters are supported. The previous
+        # sanitizer that stripped 4-byte chars has been removed.
+        serializer = self.get_serializer(data=request.data)
+        try:
+            is_valid = serializer.is_valid()
+        except Exception:
+            logger.exception('serializer.is_valid() raised exception')
+            return Response({'detail': 'Serializer validation error (see server logs).'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if not is_valid:
+            logger.warning('[ChatMessageViewSet] serializer errors: %s', serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            out = self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            # prefer returning the explicit payload built in perform_create
+            return Response(out or serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except (DataError, DatabaseError, IntegrityError) as e:
+            # Likely a DB encoding/constraint issue (e.g. attempting to store
+            # a 4-byte emoji on a MySQL column that uses 'utf8' instead of
+            # 'utf8mb4'). Return a helpful 400 so the client can retry
+            # or remove problematic characters.
+            logger.exception('Database error creating ChatMessage (possible encoding/charset issue)')
+            return Response({'detail': 'Error saving message to database. Possible unsupported characters (emoji) due to DB charset. Consider migrating to utf8mb4.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception('ChatMessage create/perform_create failed')
+            return Response({'detail': 'Error creating chat message (see server logs).'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_queryset(self):
         qs = self.queryset
@@ -192,23 +208,125 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
 
             out = {
                 'type': 'chat.message',
+                'text': saved.content or '',
                 'message': saved.content or '',
                 'content': saved.content or '',
                 'username': getattr(saved.sender, 'full_name', str(saved.sender)),
                 'sender_id': getattr(saved.sender, 'id', None),
+                'media_id': getattr(getattr(saved, 'media', None), 'id', None),
+                'media_url': getattr(getattr(saved, 'media', None), 'url', None),
+                # If Media.description stores JSON-encoded spectrum or metadata, surface it
+                'media_spectrum': None,
                 'message_id': saved.id,
                 'id': saved.id,
+                'client_msg_id': getattr(self.request, 'data', {}).get('client_msg_id', None),
                 'room_id': str(saved.room_id),
                 'timestamp': saved.timestamp.isoformat() if getattr(saved, 'timestamp', None) else None,
                 'receipts': receipts,
             }
 
+            try:
+                media_obj = getattr(saved, 'media', None)
+                # Re-fetch media from DB to avoid stale/related-object timing issues
+                try:
+                    if media_obj is not None:
+                        from media.models import Media as _MediaModel
+                        media_obj = _MediaModel.objects.filter(id=getattr(media_obj, 'id', None)).first() or media_obj
+                except Exception:
+                    pass
+                if media_obj:
+                    desc = getattr(media_obj, 'description', None)
+                    try:
+                        logging.getLogger(__name__).debug('Media description for media_id=%s repr: %s', getattr(media_obj, 'id', None), (repr(desc)[:200] + ('...' if desc and len(str(desc)) > 200 else '')) )
+                    except Exception:
+                        pass
+                    if desc:
+                        import json as _json
+                        try:
+                            parsed = _json.loads(desc) if isinstance(desc, (str, bytes)) else desc
+                            # parsed may be a plain list of bins or a dict containing the spectrum
+                            if isinstance(parsed, list):
+                                out['media_spectrum'] = parsed
+                            elif isinstance(parsed, dict):
+                                # common keys to check
+                                for k in ('spectrum', 'media_spectrum', 'audio_spectrum', 'bins'):
+                                    if k in parsed and isinstance(parsed[k], list):
+                                        out['media_spectrum'] = parsed[k]
+                                        break
+                                else:
+                                    # last resort: try to find first list value
+                                    found = None
+                                    for v in parsed.values():
+                                        if isinstance(v, list):
+                                            found = v
+                                            break
+                                    out['media_spectrum'] = found
+                            else:
+                                out['media_spectrum'] = None
+                        except Exception:
+                            out['media_spectrum'] = None
+                try:
+                    if out.get('media_id') is not None:
+                        logging.getLogger(__name__).info('HTTP create broadcast payload media debug: media_id=%s media_url=%s media_spectrum=%s', out.get('media_id'), out.get('media_url'), (out.get('media_spectrum') and ('len=%d' % len(out.get('media_spectrum'))) or None))
+                except Exception:
+                    logging.getLogger(__name__).exception('failed to log media debug info')
+            except Exception:
+                pass
+
             # Send to room group and per-user groups so clients update in real-time
             try:
                 channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)(f'room_{saved.room_id}', out)
+                # Log the HTTP-created outbound payload for traceability
+                logging.getLogger(__name__).info('[HTTP_BCAST] chat.message -> room=%s out=%s', saved.room_id, out)
+                # Use the same room group naming as ChatConsumer ('chat_<room_id>')
+                async_to_sync(channel_layer.group_send)(f'chat_{saved.room_id}', out)
+                logging.getLogger(__name__).info('[HTTP_BCAST_DONE] chat.message group_send completed for room=%s', saved.room_id)
                 for pid in participant_ids:
                     async_to_sync(channel_layer.group_send)(f'user_{pid}', dict(out, from_me=(int(pid) == int(sender_id))))
+                    logging.getLogger(__name__).info('[HTTP_BCAST_DONE] chat.message per-user group_send completed for user=%s room=%s', pid, saved.room_id)
+
+                # Fallback: send an explicit per-user direct event that maps to
+                # consumer.chat_message_direct to ensure delivery even if the
+                # room group delivery is missed for some consumers.
+                try:
+                    direct_payload = {
+                        'type': 'chat_message_direct',
+                        'message_id': saved.id,
+                        'id': saved.id,
+                        'sender_id': getattr(saved.sender, 'id', None),
+                        'text': saved.content or '',
+                        'message': saved.content or '',
+                        'room_id': str(saved.room_id),
+                        'client_msg_id': getattr(self.request, 'data', {}).get('client_msg_id', None),
+                    }
+                    logging.getLogger(__name__).info('[HTTP_BCAST] chat_message_direct -> room=%s payload=%s', saved.room_id, direct_payload)
+                    for pid in participant_ids:
+                        async_to_sync(channel_layer.group_send)(f'user_{pid}', direct_payload)
+                except Exception:
+                    logging.getLogger(__name__).exception('failed broadcasting direct per-user chat_message_direct')
+                # Additionally, broadcast a message_update containing the per-user receipts
+                try:
+                    # ensure receipts is JSON-serializable (already built above)
+                    update_payload = {
+                        'type': 'message.update',
+                        'message_id': saved.id,
+                        'receipts': receipts,
+                        'room_id': str(saved.room_id),
+                        'room': str(saved.room_id),
+                        # include client_msg_id so clients that optimistically
+                        # created a local message can match incoming updates
+                        # (handles the race where an update arrives before
+                        # the full message_new payload).
+                        'client_msg_id': getattr(self.request, 'data', {}).get('client_msg_id', None),
+                        # include minimal text so the client can display a
+                        # lightweight representation if the full message
+                        # payload hasn't arrived yet.
+                        'text': saved.content or '',
+                    }
+                    logging.getLogger(__name__).info('[HTTP_BCAST] message.update -> room=%s payload=%s', saved.room_id, update_payload)
+                    async_to_sync(channel_layer.group_send)(f'chat_{saved.room_id}', update_payload)
+                except Exception:
+                    logging.getLogger(__name__).exception('failed broadcasting initial message_update')
                 # Mark receipts delivered for recipients that are online in this process
                 try:
                     # consult presence store synchronously to decide immediate deliveries
@@ -234,12 +352,18 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                     logging.getLogger(__name__).exception('failed marking immediate delivered receipts')
             except Exception:
                 logging.getLogger(__name__).exception('failed to broadcast message via channel layer')
+            # Return the sanitized outgoing payload so the HTTP response can
+            # include the created message and receipts for immediate client
+            # reconciliation of optimistic messages.
+            try:
+                return out
+            except Exception:
+                # fallback to serializer.data if out is not available
+                return serializer.data
         except Exception:
             logging.getLogger(__name__).exception('post-create receipt/broadcast failed')
 
     # Acción personalizada: obtener los últimos N mensajes de una sala
-    from rest_framework.decorators import action
-
     @action(detail=False, methods=['get'])
     def last_messages(self, request):
         room_id = request.query_params.get('room')
@@ -258,9 +382,16 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         except ChatRoom.DoesNotExist:
             return Response({'detail': 'Sala no existe o no eres participante.'}, status=status.HTTP_404_NOT_FOUND)
 
-        messages = ChatMessage.objects.filter(room=room).order_by('-timestamp')[:limit]
-        # los devolvemos en orden cronológico ascendente
-        messages = reversed(list(messages))
-        serializer = ChatMessageSerializer(messages, many=True, context={'request': request})
-        return Response(serializer.data)
+        # Prefetch receipts to avoid N+1 queries and ensure the serializer
+        # can include per-message receipts so the client sees persisted ticks
+        # after reloads.
+        try:
+            messages_qs = ChatMessage.objects.filter(room=room).order_by('-timestamp').prefetch_related('receipts')[:limit]
+            # los devolvemos en orden cronológico ascendente
+            messages = reversed(list(messages_qs))
+            serializer = ChatMessageSerializer(messages, many=True, context={'request': request})
+            return Response(serializer.data)
+        except Exception:
+            logging.getLogger(__name__).exception('failed fetching last_messages')
+            return Response({'detail': 'Error al obtener mensajes.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

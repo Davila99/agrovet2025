@@ -6,7 +6,7 @@ import logging
 from rest_framework.decorators import action
 from django.db import DatabaseError, IntegrityError, DataError
 
-from chat.models import ChatRoom, ChatMessage, get_or_create_private_chat
+from chat.models import ChatRoom, ChatMessage, get_or_create_private_chat, ChatMessageReceipt
 from chat.api.serializers import ChatRoomSerializer, ChatMessageSerializer
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -394,4 +394,54 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         except Exception:
             logging.getLogger(__name__).exception('failed fetching last_messages')
             return Response({'detail': 'Error al obtener mensajes.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='mark_read')
+    def mark_read(self, request):
+        """HTTP endpoint to mark all messages in a room as read for the requesting user.
+
+        This mirrors the websocket 'mark_read' behaviour but provides an
+        HTTP fallback for clients that prefer REST or when the websocket is
+        unreliable. Expects JSON: { "room": <room_id> }
+        Returns: { "updated": [<message_id>, ...] }
+        """
+        user = request.user
+        room_id = request.data.get('room') or request.data.get('room_id')
+        logger = logging.getLogger(__name__)
+        logger.info('[HTTP_MARK_READ] user=%s room=%s', getattr(user, 'id', None), room_id)
+
+        if not room_id or str(room_id).lower() in ('null', 'undefined'):
+            return Response({'detail': "Invalid 'room' parameter."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            room_pk = int(room_id)
+        except (TypeError, ValueError):
+            return Response({'detail': "'room' debe ser un id numérico válido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Ensure the requester is a participant
+            room = ChatRoom.objects.get(pk=room_pk, participants=user)
+        except ChatRoom.DoesNotExist:
+            return Response({'detail': 'Sala no existe o no eres participante.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            # Mark receipts as delivered/read and update message aggregate flags
+            now = timezone.now()
+            receipts_qs = ChatMessageReceipt.objects.filter(message__room_id=room_pk, user=user, read=False)
+            message_ids = list(receipts_qs.values_list('message_id', flat=True))
+            if message_ids:
+                receipts_qs.update(delivered=True, delivered_at=now, read=True, read_at=now)
+
+                # Update ChatMessage aggregated flags when all receipts are read
+                for mid in set(message_ids):
+                    try:
+                        still_unread = ChatMessageReceipt.objects.filter(message_id=mid, read=False).exists()
+                        if not still_unread:
+                            ChatMessage.objects.filter(id=mid).update(read=True, seen=True, read_at=now)
+                    except Exception:
+                        logger.exception('failed updating aggregate ChatMessage read flags for id=%s', mid)
+
+            return Response({'updated': message_ids}, status=status.HTTP_200_OK)
+        except Exception:
+            logger.exception('HTTP mark_read failed for user=%s room=%s', getattr(user, 'id', None), room_id)
+            return Response({'detail': 'Error marcando mensajes como leídos.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

@@ -173,15 +173,31 @@ CORS_ALLOW_CREDENTIALS = True
 # Use the chat.asgi application which installs the QueryAuthMiddlewareStack
 # so websocket connections can be authenticated via ?token=<key>
 ASGI_APPLICATION = 'chat.asgi.application'
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+# Channel layer configuration
+# - During development (DEBUG=True) prefer the in-memory channel layer so
+#   websockets work without needing a local Redis instance. This is single-
+#   process only and NOT suitable for production or multi-worker setups.
+# - In non-DEBUG environments use channels_redis with host/port read from env.
+if DEBUG:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
-    },
-}
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [
+                    (
+                        os.getenv('REDIS_HOST', '127.0.0.1'),
+                        int(os.getenv('REDIS_PORT', '6379')),
+                    )
+                ],
+            },
+        },
+    }
 SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
 SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
 SUPABASE_BUCKET = "agrovet-profile"

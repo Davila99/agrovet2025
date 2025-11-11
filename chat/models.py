@@ -100,7 +100,9 @@ class ChatMessage(models.Model):
 
     
     def __str__(self):
-        return f"Mensaje de {self.sender.username} en Sala {self.room.id}"
+        # Use a safe display for sender in case custom User lacks `username`
+        sender_display = getattr(self.sender, 'username', None) or getattr(self.sender, 'full_name', None) or getattr(self.sender, 'phone_number', None) or str(self.sender)
+        return f"Mensaje de {sender_display} en Sala {self.room.id}"
 
     class Meta:
         ordering = ('timestamp',) # Ordena los mensajes por tiempo
@@ -149,3 +151,25 @@ class ChatMessageReceipt(models.Model):
         verbose_name_plural = 'Receipts de mensajes'
     def __str__(self):
         return f"Receipt message={getattr(self.message,'id',None)} user={getattr(self.user,'id',None)}"
+
+
+class BroadcastRetry(models.Model):
+    """Simple model to persist failed channel-layer broadcasts for later retry.
+
+    This model is intentionally small: it records the target group name and the
+    JSON payload that failed to be sent. A separate management command or
+    background job can be implemented to retry these entries when Redis is
+    available.
+    """
+    group_name = models.CharField(max_length=200, db_index=True)
+    payload = models.JSONField()
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Broadcast retry'
+        verbose_name_plural = 'Broadcast retries'
+
+    def __str__(self):
+        return f"BroadcastRetry group={self.group_name} attempts={self.attempts}"

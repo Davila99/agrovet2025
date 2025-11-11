@@ -10,6 +10,7 @@ from chat.models import ChatRoom, ChatMessage, get_or_create_private_chat, ChatM
 from chat.api.serializers import ChatRoomSerializer, ChatMessageSerializer
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from chat.utils.broadcast import safe_group_send_sync
 from django.utils import timezone
 from chat.presence import sync_is_online
 
@@ -302,11 +303,11 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                 # Log the HTTP-created outbound payload for traceability
                 logging.getLogger(__name__).info('[HTTP_BCAST] chat.message -> room=%s out=%s', saved.room_id, out)
                 # Use the same room group naming as ChatConsumer ('chat_<room_id>')
-                async_to_sync(channel_layer.group_send)(f'chat_{saved.room_id}', out)
-                logging.getLogger(__name__).info('[HTTP_BCAST_DONE] chat.message group_send completed for room=%s', saved.room_id)
+                safe_group_send_sync(f'chat_{saved.room_id}', out)
+                logging.getLogger(__name__).info('[HTTP_BCAST_DONE] chat.message group_send attempted for room=%s', saved.room_id)
                 for pid in participant_ids:
-                    async_to_sync(channel_layer.group_send)(f'user_{pid}', dict(out, from_me=(int(pid) == int(sender_id))))
-                    logging.getLogger(__name__).info('[HTTP_BCAST_DONE] chat.message per-user group_send completed for user=%s room=%s', pid, saved.room_id)
+                    safe_group_send_sync(f'user_{pid}', dict(out, from_me=(int(pid) == int(sender_id))))
+                    logging.getLogger(__name__).info('[HTTP_BCAST_DONE] chat.message per-user group_send attempted for user=%s room=%s', pid, saved.room_id)
 
                 # Fallback: send an explicit per-user direct event that maps to
                 # consumer.chat_message_direct to ensure delivery even if the
@@ -324,7 +325,7 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                     }
                     logging.getLogger(__name__).info('[HTTP_BCAST] chat_message_direct -> room=%s payload=%s', saved.room_id, direct_payload)
                     for pid in participant_ids:
-                        async_to_sync(channel_layer.group_send)(f'user_{pid}', direct_payload)
+                        safe_group_send_sync(f'user_{pid}', direct_payload)
                 except Exception:
                     logging.getLogger(__name__).exception('failed broadcasting direct per-user chat_message_direct')
                 # Additionally, broadcast a message_update containing the per-user receipts
@@ -347,7 +348,7 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                         'text': saved.content or '',
                     }
                     logging.getLogger(__name__).info('[HTTP_BCAST] message.update -> room=%s payload=%s', saved.room_id, update_payload)
-                    async_to_sync(channel_layer.group_send)(f'chat_{saved.room_id}', update_payload)
+                    safe_group_send_sync(f'chat_{saved.room_id}', update_payload)
                 except Exception:
                     logging.getLogger(__name__).exception('failed broadcasting initial message_update')
                 # Mark receipts delivered for recipients that are online in this process
@@ -360,17 +361,17 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                         updated_qs.update(delivered=True, delivered_at=now)
                         # notify sender about these deliveries so UI can show delivered ticks
                         for r in ChatMessageReceipt.objects.filter(message=saved, user_id__in=online_recips):
-                            try:
-                                async_to_sync(channel_layer.group_send)(f'user_{sender_id}', {
-                                    'type': 'chat.delivery',
-                                    'message_id': saved.id,
-                                    'receipt_id': r.id,
-                                    'user_id': getattr(r.user, 'id', None),
-                                    'delivered_at': r.delivered_at.isoformat() if getattr(r, 'delivered_at', None) else None,
-                                    'message_delivered': bool(getattr(saved, 'delivered', False)),
-                                })
-                            except Exception:
-                                logging.getLogger(__name__).exception('failed to notify sender about immediate delivery')
+                                try:
+                                    safe_group_send_sync(f'user_{sender_id}', {
+                                        'type': 'chat.delivery',
+                                        'message_id': saved.id,
+                                        'receipt_id': r.id,
+                                        'user_id': getattr(r.user, 'id', None),
+                                        'delivered_at': r.delivered_at.isoformat() if getattr(r, 'delivered_at', None) else None,
+                                        'message_delivered': bool(getattr(saved, 'delivered', False)),
+                                    })
+                                except Exception:
+                                    logging.getLogger(__name__).exception('failed to notify sender about immediate delivery')
                 except Exception:
                     logging.getLogger(__name__).exception('failed marking immediate delivered receipts')
             except Exception:

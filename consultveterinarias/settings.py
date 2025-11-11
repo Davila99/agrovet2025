@@ -79,12 +79,12 @@ WSGI_APPLICATION = 'consultveterinarias.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': os.getenv('DB_NAME'),
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'PORT': os.getenv('DB_PORT', '3306'),
         # Ensure connections use utf8mb4 so 4-byte unicode (emoji) is supported.
         # This is the preferred permanent fix for emoji/storage issues.
         'OPTIONS': {

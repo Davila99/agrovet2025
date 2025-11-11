@@ -185,16 +185,23 @@ if DEBUG:
         },
     }
 else:
+    # Support REDIS_URL (eg: redis://:password@host:port) which is convenient
+    # for cloud providers like Upstash or Redis Cloud. If REDIS_URL is not set,
+    # fall back to REDIS_HOST/REDIS_PORT tuple form.
+    redis_url = os.getenv('REDIS_URL')
+    if redis_url:
+        hosts = [redis_url]
+    else:
+        hosts = [(
+            os.getenv('REDIS_HOST', '127.0.0.1'),
+            int(os.getenv('REDIS_PORT', '6379')),
+        )]
+
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [
-                    (
-                        os.getenv('REDIS_HOST', '127.0.0.1'),
-                        int(os.getenv('REDIS_PORT', '6379')),
-                    )
-                ],
+                "hosts": hosts,
             },
         },
     }

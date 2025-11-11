@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from ..models import SpecialistProfile, BusinessmanProfile, ConsumerProfile # CORRECCIÓN: Se usa '..' para apuntar al directorio padre (profiles)
+from ..models import SpecialistProfile, BusinessmanProfile, ConsumerProfile
 from .serializers import (
     SpecialistProfileSerializer,
     BusinessmanProfileSerializer,
@@ -15,6 +15,9 @@ from django.contrib.contenttypes.models import ContentType
 from media.api.serializers import MediaSerializer
 from auth_app.utils.supabase_utils import upload_image_to_supabase
 from media.models import Media
+from django.shortcuts import get_object_or_404
+from auth_app.models import User
+from rest_framework.exceptions import PermissionDenied
 
 # Clase base que implementa la lógica de seguridad para perfiles 1-a-1.
 class UserProfileViewSet(viewsets.ModelViewSet):
@@ -93,7 +96,6 @@ class SpecialistProfileViewSet(UserProfileViewSet):
     queryset = SpecialistProfile.objects.all()
     serializer_class = SpecialistProfileSerializer
 
-
     def create(self, request, *args, **kwargs):
         """Crear SpecialistProfile asignado al usuario autenticado.
         Reutiliza la validación del serializer y usa perform_create para coherencia.
@@ -103,6 +105,48 @@ class SpecialistProfileViewSet(UserProfileViewSet):
         # Usar perform_create para aprovechar las validaciones adicionales
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_object(self):
+        """Obtener el SpecialistProfile para el usuario indicado en la URL.
+
+        Si no existe, crear el SpecialistProfile automáticamente y devolverlo.
+        """
+        user_id = self.kwargs.get('pk')
+        # Permitimos que la vista se use con el id de usuario; 404 si no existe el usuario
+        user = get_object_or_404(User, pk=user_id)
+
+        # Sólo permitir acceso al propio perfil o a usuarios staff (admins).
+        # Evita que un usuario autenticado normal actualice el perfil de otro.
+        if not (self.request.user.is_staff or self.request.user.pk == user.pk):
+            raise PermissionDenied('No tiene permiso para acceder a este recurso.')
+
+        profile, created = SpecialistProfile.objects.get_or_create(user=user)
+        return profile
+
+    @action(detail=False, methods=['get', 'patch'], url_path=r'by-user/(?P<user_id>[^/.]+)')
+    def by_user(self, request, user_id=None):
+        """Endpoint semántico para obtener/actualizar el perfil por user id.
+
+        GET  /profiles/specialists/by-user/<user_id>/  -> devuelve el perfil (creándolo si falta)
+        PATCH /profiles/specialists/by-user/<user_id>/  -> actualiza el perfil (creándolo si falta)
+        """
+        user = get_object_or_404(User, pk=user_id)
+
+        # Security: allow only staff or the user themselves to read/update this profile
+        if not (request.user.is_staff or request.user.pk == user.pk):
+            raise PermissionDenied('No tiene permiso para acceder a este recurso.')
+
+        profile, _ = SpecialistProfile.objects.get_or_create(user=user)
+
+        if request.method == 'PATCH':
+            serializer = self.get_serializer(profile, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+
+        serializer = self.get_serializer(profile)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def upload_work_images(self, request, pk=None):

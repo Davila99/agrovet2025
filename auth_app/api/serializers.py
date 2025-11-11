@@ -7,6 +7,7 @@ from profiles.api.serializers import (
     BusinessmanProfileSerializer as BusinessmanProfileReadSerializer,
     ConsumerProfileSerializer as ConsumerProfileReadSerializer,
 )
+from profiles.models import SpecialistProfile, BusinessmanProfile, ConsumerProfile
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -77,6 +78,19 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
         # Crear usuario usando create_user para mantener la lógica del manager
         user = User.objects.create_user(phone_number=phone_number, password=password, **validated_data)
+
+        # 🔹 Crear perfil automáticamente según el role del usuario
+        try:
+            role_value = (user.role or '').lower()
+            if role_value == 'specialist' or role_value == 'specialista' or role_value == 'specialist':
+                SpecialistProfile.objects.get_or_create(user=user)
+            elif role_value == 'businessman' or role_value == 'business' or role_value == 'business_owner':
+                BusinessmanProfile.objects.get_or_create(user=user)
+            elif role_value == 'consumer' or role_value == 'client':
+                ConsumerProfile.objects.get_or_create(user=user)
+        except Exception:
+            # No abortar el registro por fallo en la creación del perfil; registrar/log si se desea
+            pass
 
         if image:
             try:

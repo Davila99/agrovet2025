@@ -50,6 +50,40 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             event_type = content.get('type')
             if event_type == 'chat_message':
                 await self.create_message(content)
+            # allow clients to send a temporary preview payload (contains preview_data_url)
+            # without creating a persistent ChatMessage. This will rebroadcast the
+            # lightweight preview to the room so other connected clients can display
+            # a thumbnail immediately while the upload finishes on the sender side.
+            elif event_type in ('chat.message', 'preview_message', 'preview'):
+                # Only accept preview messages that include a preview_data_url or a previewUrl
+                try:
+                    if not (content.get('preview_data_url') or content.get('previewUrl') or content.get('preview_url')):
+                        logger.debug('[RECEIVE_JSON] preview event ignored, missing preview field')
+                    else:
+                        # build a normalized preview payload and broadcast to room group
+                        room_id = content.get('room_id') or self.room_id
+                        preview_msg = {
+                            'id': content.get('id') or content.get('temp_id') or f'tmp_{int(timezone.now().timestamp()*1000)}',
+                            'client_msg_id': content.get('client_msg_id') or content.get('clientMsgId') or None,
+                            'sender_id': getattr(self.user, 'id', None),
+                            'preview_data_url': content.get('preview_data_url') or content.get('previewUrl') or content.get('preview_url'),
+                            'media_type': content.get('media_type') or content.get('mediaType') or None,
+                            'media_uploading': True,
+                            'status': 'uploading',
+                            'room': room_id,
+                            'room_id': room_id,
+                            'timestamp': content.get('timestamp') or timezone.now().isoformat(),
+                        }
+                        # Broadcast as a lightweight event; consumers will handle preview_message
+                        group_name = f'chat_{room_id}'
+                        await self.channel_layer.group_send(group_name, {
+                            'type': 'preview_message',
+                            'message': preview_msg,
+                            'room_id': room_id,
+                        })
+                        logger.info('[PREVIEW_BCAST] rebroadcast preview to room=%s sender=%s', room_id, getattr(self.user, 'id', None))
+                except Exception:
+                    logger.exception('receive_json: failed handling preview event')
             elif event_type == 'mark_read':
                 await self.mark_messages_read(content)
             else:
@@ -164,8 +198,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         # send the message payload to the client including status
         try:
             logger.info('[SEND_SOCKET] about to send chat_message id=%s to user=%s', msg_id, getattr(self.user, 'id', None))
-            # Use a consistent dotted event type for WS messages
-            await self.send_json({
+            # Build a payload re-using any media-related fields the group event carried
+            out_payload = {
                 'type': 'chat.message',
                 'id': msg_id,
                 'sender_id': sender_id,
@@ -173,10 +207,39 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 'status': 'delivered',
                 'room': self.room_id,
                 'room_id': self.room_id,
-            })
+            }
+            # Preserve optional media/preview/client identifiers if present on the event
+            try:
+                for key in ('media_id', 'media_url', 'media_spectrum', 'client_msg_id', 'clientMsgId', 'message', 'content', 'preview_data_url', 'previewUrl'):
+                    if key in event and event.get(key) is not None:
+                        out_payload[key] = event.get(key)
+            except Exception:
+                logger.exception('failed merging optional media fields into outgoing payload')
+
+            # Use a consistent dotted event type for WS messages
+            await self.send_json(out_payload)
             logger.info('[SENT_SOCKET] chat_message id=%s sent to user=%s', msg_id, getattr(self.user, 'id', None))
         except Exception:
             logger.exception('chat_message: send_json failed')
+
+    async def preview_message(self, event):
+        """Handler for preview broadcasts: forwards a lightweight preview
+        payload to the connected client without persisting or marking receipts.
+        This is used when a sender emits a temporary preview (preview_data_url)
+        while the actual file upload is in progress.
+        """
+        try:
+            msg = event.get('message') or {}
+            # send as a consistent 'chat.message' payload so JS clients handle it
+            await self.send_json({
+                'type': 'chat.message',
+                'message': msg,
+                'room': event.get('room_id') or msg.get('room') or None,
+                'room_id': event.get('room_id') or msg.get('room') or None,
+            })
+            logger.debug('[PREVIEW_SEND] forwarded preview to user=%s msg=%s', getattr(self.user, 'id', None), msg.get('id'))
+        except Exception:
+            logger.exception('preview_message: send_json failed')
 
     def _mark_delivered(self, msg_id, user):
         try:
@@ -400,8 +463,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             msg_id = event.get('message_id') or event.get('id')
             sender_id = event.get('sender_id')
             text = event.get('text') or event.get('message') or event.get('content')
-            # Send with consistent dotted event type
-            await self.send_json({
+
+            out = {
                 'type': 'chat.message',
                 'id': msg_id,
                 'sender_id': sender_id,
@@ -409,7 +472,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 'status': 'delivered',
                 'room': event.get('room_id') or event.get('room'),
                 'room_id': event.get('room_id') or event.get('room'),
-            })
+            }
+            try:
+                for key in ('media_id', 'media_url', 'media_spectrum', 'client_msg_id', 'clientMsgId', 'message', 'content', 'preview_data_url', 'previewUrl'):
+                    if key in event and event.get(key) is not None:
+                        out[key] = event.get(key)
+            except Exception:
+                logger.exception('chat_message_direct: failed merging optional media fields')
+
+            # Send the enriched payload
+            await self.send_json(out)
         except Exception:
             logger.exception('chat_message_direct: send_json failed')
 

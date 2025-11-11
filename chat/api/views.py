@@ -178,6 +178,29 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        # If client provided a direct media_url (uploaded by client to Supabase
+        # or other storage), create a Media record first so the ChatMessage can
+        # be created with a proper FK and outgoing broadcasts include media_url.
+        try:
+            media_url_from_client = None
+            try:
+                media_url_from_client = self.request.data.get('media_url') or self.request.data.get('mediaUrl')
+            except Exception:
+                media_url_from_client = None
+            # If a media_url was provided but the serializer didn't include a media FK,
+            # create a Media instance and attach it to validated_data so serializer.save
+            # will set the foreign key correctly at creation time.
+            if media_url_from_client and not serializer.validated_data.get('media'):
+                try:
+                    from media.models import Media as _MediaModel
+                    media_obj = _MediaModel.objects.create(url=media_url_from_client, name=(self.request.data.get('media_name') or None), description=(self.request.data.get('description') or None))
+                    # Attach created media instance into validated_data for serializer.save
+                    serializer.validated_data['media'] = media_obj
+                except Exception:
+                    logging.getLogger(__name__).exception('failed creating Media from client-provided media_url')
+        except Exception:
+            logging.getLogger(__name__).exception('pre-create media_url handling failed')
+
         # Save message with sender context
         saved = serializer.save(sender=self.request.user)
 

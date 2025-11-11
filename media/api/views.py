@@ -5,6 +5,9 @@ from rest_framework.response import Response
 from media.models import Media
 from media.api.serializers import MediaSerializer
 from auth_app.utils.supabase_utils import upload_image_to_supabase, delete_image_from_supabase
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MediaViewSet(viewsets.ModelViewSet):
@@ -31,25 +34,34 @@ class MediaViewSet(viewsets.ModelViewSet):
             except Exception:
                 # Fallback to empty dict if something unexpected is present
                 data = {}
-            # Log incoming request for debugging
+            # Log incoming request for diagnosis (kept concise)
             try:
-                print(f"[MediaViewSet.create] files={list(request.FILES.keys())} data_keys={list(request.data.keys())} user={getattr(request,'user',None)} auth={request.META.get('HTTP_AUTHORIZATION')}")
+                logger.info("MediaViewSet.create incoming", extra={
+                    'files': list(request.FILES.keys()),
+                    'data_keys': list(request.data.keys()),
+                    'user': getattr(request, 'user', None),
+                    'auth_header': bool(request.META.get('HTTP_AUTHORIZATION'))
+                })
             except Exception:
-                pass
+                logger.exception('Failed logging incoming request for MediaViewSet.create')
 
             # If an image is present, log some attributes for diagnosis
             if image:
                 try:
-                    print(f"[MediaViewSet.create] incoming file: name={getattr(image,'name',None)} size={getattr(image,'size',None)} content_type={getattr(image,'content_type',None)}")
+                    logger.info('MediaViewSet.create incoming file', extra={
+                        'name': getattr(image, 'name', None),
+                        'size': getattr(image, 'size', None),
+                        'content_type': getattr(image, 'content_type', None)
+                    })
                 except Exception:
-                    pass
+                    logger.exception('Failed logging incoming file attributes')
 
             if image:
                 url = upload_image_to_supabase(image, folder="media")
                 try:
-                    print(f"[MediaViewSet.create] upload_image_to_supabase returned: {url}")
+                    logger.info('upload_image_to_supabase returned', extra={'url': url})
                 except Exception:
-                    pass
+                    logger.exception('Failed logging supabase upload result')
                 if url:
                     data['url'] = url
 
@@ -57,19 +69,19 @@ class MediaViewSet(viewsets.ModelViewSet):
             # sending only the file (image) and url without being forced to provide
             # content_type/object_id at creation time.
             serializer = self.get_serializer(data=data, partial=True)
-            # Log serializer initial data for debugging
+            # Log serializer initial data (concise)
             try:
-                print(f"[MediaViewSet.create] serializer.initial_data: {getattr(serializer,'initial_data',None)}")
+                logger.info('serializer.initial_data', extra={'initial_data_keys': list(getattr(serializer, 'initial_data', {}).keys() if getattr(serializer,'initial_data',None) else [])})
             except Exception:
-                pass
+                logger.exception('Failed logging serializer initial data')
 
             # Validate explicitly to capture and log serializer errors for 400 responses
             if not serializer.is_valid():
                 try:
-                    print(f"[MediaViewSet.create] serializer errors: {serializer.errors}")
-                    print(f"[MediaViewSet.create] incoming data: {data}")
+                    logger.info('serializer validation errors', extra={'errors': serializer.errors})
+                    logger.debug('incoming data for failed serializer', extra={'data_keys': list(data.keys())})
                 except Exception:
-                    pass
+                    logger.exception('Failed logging serializer errors')
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             self.perform_create(serializer)
@@ -83,20 +95,15 @@ class MediaViewSet(viewsets.ModelViewSet):
                     if m is not None:
                         desc = getattr(m, 'description', None)
                         try:
-                            print(f"[MediaViewSet.create] saved Media id={m.id} description_preview={repr(desc)[:200]} desc_len={len(str(desc))}")
+                            logger.info('saved Media', extra={'id': m.id, 'description_len': len(str(desc))})
                         except Exception:
-                            pass
+                            logger.exception('Failed logging saved Media details')
             except Exception:
-                pass
+                logger.exception('Error while attempting to log created media details')
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         except Exception as exc:
             # Catch unexpected exceptions and return JSON instead of HTML
-            import traceback as _tb
-            print('[MediaViewSet.create] unexpected exception:', exc)
-            try:
-                _tb.print_exc()
-            except Exception:
-                pass
+            logger.exception('unexpected exception in MediaViewSet.create')
             return Response({'detail': 'internal server error', 'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def update(self, request, *args, **kwargs):

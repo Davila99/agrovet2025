@@ -2,7 +2,10 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db import transaction
-from django_filters.rest_framework import DjangoFilterBackend
+try:
+    from django_filters.rest_framework import DjangoFilterBackend
+except Exception:  # pragma: no cover - allow server to start even if package not installed
+    DjangoFilterBackend = None
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from ..models import Add, Category, Follow
@@ -14,7 +17,8 @@ class AddViewSet(viewsets.ModelViewSet):
     queryset = Add.objects.all().select_related("publisher", "category").prefetch_related("secondary_images")
     serializer_class = AddSerializer
     permission_classes = [IsPublisherOrReadOnly]
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    # Only include filter backends that are available to avoid import-time failures
+    filter_backends = [b for b in (DjangoFilterBackend, SearchFilter, OrderingFilter) if b]
     filterset_fields = ['category', 'condition', 'status']
     search_fields = ['title', 'description']
     ordering_fields = ['created_at', 'price']

@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-from corsheaders.defaults import default_headers
+from corsheaders.defaults import default_headers, default_methods
 # Cargar las variables del archivo .env
 load_dotenv()
 
@@ -49,8 +49,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -174,9 +174,18 @@ CORS_ALLOWED_ORIGINS = [
 # Allow the Authorization header for cross-origin requests (useful in dev)
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'authorization',
+    'x-csrftoken',
 ]
 # If you need to send cookies for session auth from the frontend, enable this
 CORS_ALLOW_CREDENTIALS = True
+
+# Explicitly allow common methods and expose common headers to the browser
+# This helps ensure preflight (OPTIONS) responses include the expected values.
+CORS_ALLOW_METHODS = list(default_methods)
+CORS_EXPOSE_HEADERS = [
+    'Content-Type',
+    'Authorization',
+]
 
 # Use the chat.asgi application which installs the QueryAuthMiddlewareStack
 # so websocket connections can be authenticated via ?token=<key>

@@ -50,6 +50,9 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    # Temporary debug middleware to log incoming Authorization headers for
+    # diagnosing CORS / token arrival issues from the frontend. Remove in prod.
+    'consultveterinarias.middleware_debug.LogAuthHeaderMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -173,15 +176,18 @@ CORS_ALLOWED_ORIGINS = [
 
 # Allow the Authorization header for cross-origin requests (useful in dev)
 CORS_ALLOW_HEADERS = list(default_headers) + [
-    'authorization',
-    'x-csrftoken',
+    'authorization', 'Authorization',
+    'x-csrftoken', 'X-CSRFToken',
+    'content-type',
 ]
-# If you need to send cookies for session auth from the frontend, enable this
-CORS_ALLOW_CREDENTIALS = True
 
-# Explicitly allow common methods and expose common headers to the browser
-# This helps ensure preflight (OPTIONS) responses include the expected values.
-CORS_ALLOW_METHODS = list(default_methods)
+# Explicitly allow common methods (helps make preflight expectations clear).
+CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+
+# Allow credentials (cookies) to be sent in cross-site requests when needed.
+# Keep a single definitive assignment below near cookie settings.
+
+# Expose common headers to the browser so JS can read them from responses.
 CORS_EXPOSE_HEADERS = [
     'Content-Type',
     'Authorization',

@@ -4,6 +4,7 @@ django-cors-headers
 Pillow
 supabase
 drf-yasg
+django-filter
 python-dotenv
 twilio
 pymysql

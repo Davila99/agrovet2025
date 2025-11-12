@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
+    'add',
     'auth_app',
     'profiles',
     'corsheaders',
@@ -42,7 +43,6 @@ INSTALLED_APPS = [
     "chat",
     'drf_yasg',
     'media',
-
 ]
 
 

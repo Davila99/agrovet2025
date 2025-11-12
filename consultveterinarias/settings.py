@@ -159,6 +159,7 @@ REST_FRAMEWORK = {
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
+    " https://shante-klephtic-nahla.ngrok-free.dev",
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app",    # deploy (sin / al final)
 ]

@@ -2,7 +2,6 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from corsheaders.defaults import default_headers
-from django.conf import settings
 # Cargar las variables del archivo .env
 load_dotenv()
 
@@ -49,6 +48,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -96,8 +96,9 @@ DATABASES = {
         },
     }
 }
-print("DEBUG:", os.getenv('DEBUG'))
-print("DB_PASSWORD:", os.getenv('DB_PASSWORD'))
+## avoid printing secrets to stdout in production; use logging if needed
+# print("DEBUG:", os.getenv('DEBUG'))
+# print("DB_PASSWORD:", os.getenv('DB_PASSWORD'))
 
 
 
@@ -138,8 +139,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+# Additional static dirs for collectstatic to pick up
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -165,7 +166,7 @@ REST_FRAMEWORK = {
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
-    " https://shante-klephtic-nahla.ngrok-free.dev",
+    "https://shante-klephtic-nahla.ngrok-free.dev",
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app",    # deploy (sin / al final)
 ]
@@ -215,6 +216,38 @@ else:
 SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
 SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
 SUPABASE_BUCKET = "agrovet-profile"
+
+# WhiteNoise static files storage for ASGI/Daphne
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Support ngrok dynamic origin (set NGROK_URL env var to full URL e.g. https://abc123.ngrok.io)
+NGROK_URL = os.getenv('NGROK_URL')
+if NGROK_URL:
+    # CSRF_TRUSTED_ORIGINS requires the scheme
+    CSRF_TRUSTED_ORIGINS = [NGROK_URL]
+    try:
+        CORS_ALLOWED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
+    except Exception:
+        CORS_ALLOWED_ORIGINS = []
+    if NGROK_URL not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(NGROK_URL)
+    # If ALLOWED_HOSTS is not wildcard, append the ngrok host
+    if ALLOWED_HOSTS != ['*']:
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(NGROK_URL)
+            if parsed.hostname and parsed.hostname not in ALLOWED_HOSTS:
+                ALLOWED_HOSTS.append(parsed.hostname)
+        except Exception:
+            pass
+
+# Cookie settings for cross-site requests (only when serving over HTTPS)
+CSRF_COOKIE_SAMESITE = os.getenv('CSRF_COOKIE_SAMESITE', 'None')
+SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', 'None')
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True') == 'True'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True') == 'True'
+CORS_ALLOW_CREDENTIALS = True
+
 
 
 # Simple logging configuration for development to surface chat events

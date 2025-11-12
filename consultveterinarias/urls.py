@@ -9,6 +9,7 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 
 
 schema_view = get_schema_view(
@@ -41,4 +42,10 @@ urlpatterns = [
 
 if settings.DEBUG:
    # serve static files during development
+   # Helper: standard static() will mount STATIC_URL -> STATIC_ROOT.
    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+   # Explicit fallback route that uses django.views.static.serve so tools or
+   # custom setups that rely on a direct /static/<path> handler work as well.
+   urlpatterns += [
+       path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT}),
+   ]

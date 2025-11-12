@@ -93,8 +93,7 @@ DATABASES = {
         },
     }
 }
-print("DEBUG:", os.getenv('DEBUG'))
-print("DB_PASSWORD:", os.getenv('DB_PASSWORD'))
+# Don't print secrets to stdout; use logging if needed. Remove debug prints.
 
 
 
@@ -133,7 +132,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+# URL path for static files
+STATIC_URL = '/static/'
+
+# Where `collectstatic` will gather files for production deployment.
+# Ensure this exists and is writable by the deployment user before running collectstatic.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Additional locations the staticfiles app will search for static files during
+# development and before collectstatic. Keep if you have a top-level `static/` dir.
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

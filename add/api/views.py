@@ -11,6 +11,9 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from ..models import Add, Category, Follow
 from .serializers import AddSerializer, CategorySerializer, FollowSerializer
 from .permissions import IsPublisherOrReadOnly
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AddViewSet(viewsets.ModelViewSet):
@@ -25,6 +28,22 @@ class AddViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(publisher=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Override create to log incoming data and serializer errors for debugging 400 responses."""
+        try:
+            logger.info('AddViewSet.create called', extra={'user': getattr(request, 'user', None), 'data_keys': list(request.data.keys())})
+        except Exception:
+            pass
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            try:
+                logger.warning('Add serializer validation errors', extra={'errors': serializer.errors, 'data': dict(request.data)})
+            except Exception:
+                logger.exception('Failed logging serializer errors')
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # proceed with normal creation
+        return super().create(request, *args, **kwargs)
 
     @action(detail=False, methods=["get"])
     def my_adds(self, request):

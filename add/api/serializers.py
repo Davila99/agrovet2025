@@ -42,18 +42,20 @@ class AddSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         main_id = validated_data.pop('main_image_id', None)
         sec_ids = validated_data.pop('secondary_image_ids', []) or []
-        adds = Add.objects.create(**validated_data)
-        # attach media if provided
+        # Create instance without saving to avoid model validation that requires main_image
+        # (we'll assign main_image before the final save)
         from media.models import Media
+        adds = Add(**validated_data)
         if main_id:
             try:
                 adds.main_image = Media.objects.get(pk=main_id)
             except Media.DoesNotExist:
                 raise serializers.ValidationError({'main_image_id': 'Media principal no encontrada.'})
+        # Save first so we can assign m2m relationships
+        adds.save()
         if sec_ids:
             medias = Media.objects.filter(pk__in=sec_ids)
             adds.secondary_images.set(medias)
-        adds.save()
         return adds
 
     def update(self, instance, validated_data):

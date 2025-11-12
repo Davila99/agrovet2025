@@ -1,7 +1,8 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-from corsheaders.defaults import default_headers, default_methods
+from corsheaders.defaults import default_headers
+
 # Cargar las variables del archivo .env
 load_dotenv()
 
@@ -19,9 +20,6 @@ SECRET_KEY = 'django-insecure-fixf01*gy+umo#bo)jxwct3t+7kdv3+xra8rf2&3d)*fczj#y6
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = [
-    'https://shante-klephtic-nahla.ngrok-free.dev',
-]
 
 
 # Application definition
@@ -48,12 +46,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    # Temporary debug middleware to log incoming Authorization headers for
-    # diagnosing CORS / token arrival issues from the frontend. Remove in prod.
-    'consultveterinarias.middleware_debug.LogAuthHeaderMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -99,9 +93,8 @@ DATABASES = {
         },
     }
 }
-## avoid printing secrets to stdout in production; use logging if needed
-# print("DEBUG:", os.getenv('DEBUG'))
-# print("DB_PASSWORD:", os.getenv('DB_PASSWORD'))
+print("DEBUG:", os.getenv('DEBUG'))
+print("DB_PASSWORD:", os.getenv('DB_PASSWORD'))
 
 
 
@@ -140,10 +133,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-# Additional static dirs for collectstatic to pick up
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -169,29 +159,16 @@ REST_FRAMEWORK = {
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
-    "https://shante-klephtic-nahla.ngrok-free.dev",
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app",    # deploy (sin / al final)
 ]
 
 # Allow the Authorization header for cross-origin requests (useful in dev)
 CORS_ALLOW_HEADERS = list(default_headers) + [
-    'authorization', 'Authorization',
-    'x-csrftoken', 'X-CSRFToken',
-    'content-type',
+    'authorization',
 ]
-
-# Explicitly allow common methods (helps make preflight expectations clear).
-CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-
-# Allow credentials (cookies) to be sent in cross-site requests when needed.
-# Keep a single definitive assignment below near cookie settings.
-
-# Expose common headers to the browser so JS can read them from responses.
-CORS_EXPOSE_HEADERS = [
-    'Content-Type',
-    'Authorization',
-]
+# If you need to send cookies for session auth from the frontend, enable this
+CORS_ALLOW_CREDENTIALS = True
 
 # Use the chat.asgi application which installs the QueryAuthMiddlewareStack
 # so websocket connections can be authenticated via ?token=<key>
@@ -231,38 +208,6 @@ else:
 SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
 SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
 SUPABASE_BUCKET = "agrovet-profile"
-
-# WhiteNoise static files storage for ASGI/Daphne
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-# Support ngrok dynamic origin (set NGROK_URL env var to full URL e.g. https://abc123.ngrok.io)
-NGROK_URL = os.getenv('NGROK_URL')
-if NGROK_URL:
-    # CSRF_TRUSTED_ORIGINS requires the scheme
-    CSRF_TRUSTED_ORIGINS = [NGROK_URL]
-    try:
-        CORS_ALLOWED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
-    except Exception:
-        CORS_ALLOWED_ORIGINS = []
-    if NGROK_URL not in CORS_ALLOWED_ORIGINS:
-        CORS_ALLOWED_ORIGINS.append(NGROK_URL)
-    # If ALLOWED_HOSTS is not wildcard, append the ngrok host
-    if ALLOWED_HOSTS != ['*']:
-        try:
-            from urllib.parse import urlparse
-            parsed = urlparse(NGROK_URL)
-            if parsed.hostname and parsed.hostname not in ALLOWED_HOSTS:
-                ALLOWED_HOSTS.append(parsed.hostname)
-        except Exception:
-            pass
-
-# Cookie settings for cross-site requests (only when serving over HTTPS)
-CSRF_COOKIE_SAMESITE = os.getenv('CSRF_COOKIE_SAMESITE', 'None')
-SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', 'None')
-CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True') == 'True'
-SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True') == 'True'
-CORS_ALLOW_CREDENTIALS = True
-
 
 
 # Simple logging configuration for development to surface chat events

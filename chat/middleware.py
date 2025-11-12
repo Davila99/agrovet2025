@@ -4,6 +4,9 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from channels.db import database_sync_to_async
 import traceback
+import logging
+
+logger = logging.getLogger('chat.middleware')
 
 User = get_user_model()
 
@@ -48,24 +51,23 @@ class QueryAuthMiddleware:
         try:
             if token_list:
                 token_key = token_list[0]
-                print(f"[QueryAuthMiddleware] raw_query_string={qs_text}")
-                print(f"[QueryAuthMiddleware] token_candidate={token_key}")
+                logger.debug('[QueryAuthMiddleware] raw_query_string=%s', qs_text)
+                logger.debug('[QueryAuthMiddleware] token_candidate=%s', token_key)
                 try:
                     user = await database_sync_to_async(_get_user_for_token_sync)(token_key)
                     if getattr(user, 'is_authenticated', False):
                         try:
-                            print(f"[QueryAuthMiddleware] token valid -> user_id={user.id} display={getattr(user,'full_name', getattr(user,'username',None))}")
+                            logger.info('[QueryAuthMiddleware] token valid -> user_id=%s display=%s', user.id, getattr(user,'full_name', getattr(user,'username',None)))
                         except Exception:
-                            print(f"[QueryAuthMiddleware] token valid -> user (id/display unknown)")
+                            logger.info('[QueryAuthMiddleware] token valid -> user (id/display unknown)')
                     else:
-                        print(f"[QueryAuthMiddleware] token NOT found in DB")
+                        logger.info('[QueryAuthMiddleware] token NOT found in DB')
                 except Exception as inner_exc:
-                    print(f"[QueryAuthMiddleware] error while looking up token: {inner_exc}")
-                    traceback.print_exc()
+                    logger.exception('QueryAuthMiddleware error while looking up token: %s', inner_exc)
             else:
-                print(f"[QueryAuthMiddleware] no token found in query string: {qs_text}")
+                logger.debug('[QueryAuthMiddleware] no token found in query string: %s', qs_text)
         except Exception as e:
-            print(f"[QueryAuthMiddleware] error while parsing token: {e}")
+            logger.exception('QueryAuthMiddleware error while parsing token: %s', e)
             traceback.print_exc()
 
         scope['user'] = user

@@ -20,6 +20,9 @@ SECRET_KEY = 'django-insecure-fixf01*gy+umo#bo)jxwct3t+7kdv3+xra8rf2&3d)*fczj#y6
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = [
+    'https://shante-klephtic-nahla.ngrok-free.dev',
+]
 
 
 # Application definition

@@ -145,7 +145,21 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+# 1. Configura Django para reconocer y confiar en el encabezado
+#    'X-Forwarded-Proto' enviado por ngrok/proxies.
+#    Esto indica a Django que si este encabezado está presente y tiene el valor 'https',
+#    la solicitud original fue segura, y debe generar enlaces con HTTPS.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# 2. (Recomendado) Asegúrate de que Django use el host reenviado por ngrok
+#    si el nombre de host también parece estar causando problemas.
+USE_X_FORWARDED_HOST = True
+
+# 3. (Recomendado para seguridad en HTTPS)
+#    Esto asegura que las cookies de sesión y CSRF solo se envíen
+#    a través de conexiones HTTPS.
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Django REST Framework configuration - prefer TokenAuthentication first so

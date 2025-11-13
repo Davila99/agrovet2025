@@ -197,20 +197,14 @@ CORS_ALLOW_CREDENTIALS = True
 # so websocket connections can be authenticated via ?token=<key>
 ASGI_APPLICATION = 'chat.asgi.application'
 # Channel layer configuration
-# - During development (DEBUG=True) prefer the in-memory channel layer so
-#   websockets work without needing a local Redis instance. This is single-
-#   process only and NOT suitable for production or multi-worker setups.
-# - In non-DEBUG environments use channels_redis with host/port read from env.
-if DEBUG:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-        },
-    }
-else:
+# Default behavior: in development (DEBUG=True) use InMemoryChannelLayer so
+# websockets work without Redis. However, allow forcing Redis when a
+# REDIS_URL is present or when USE_REDIS_CHANNELS=1 is set in env.
+use_redis_channels = os.getenv('USE_REDIS_CHANNELS') == '1' or bool(os.getenv('REDIS_URL'))
+
+if use_redis_channels or not DEBUG:
     # Support REDIS_URL (eg: redis://:password@host:port) which is convenient
-    # for cloud providers like Upstash or Redis Cloud. If REDIS_URL is not set,
-    # fall back to REDIS_HOST/REDIS_PORT tuple form.
+    # for cloud providers. If REDIS_URL is not set, fall back to host/port.
     redis_url = os.getenv('REDIS_URL')
     if redis_url:
         hosts = [redis_url]
@@ -223,11 +217,12 @@ else:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": hosts,
-            },
+            "CONFIG": {"hosts": hosts},
         },
     }
+else:
+    # Development-friendly in-memory channel layer (single-process only).
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
 SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
 SUPABASE_BUCKET = "agrovet-profile"

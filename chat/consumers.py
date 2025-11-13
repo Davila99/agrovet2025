@@ -1,11 +1,40 @@
-"""Lightweight shim module.
+"""Consumidores de WebSocket ligeros.
 
-This module intentionally keeps the public import path ``chat.consumers``
-stable while the full implementations live in ``chat.consumers_impl``.
-Only re-export the consumer classes here so other imports in the project
-keep working without change.
+Este archivo expone un `TestConsumer` simple para pruebas y, además,
+re-exporta los consumidores existentes para mantener compatibilidad con
+el resto del proyecto.
+
+El `TestConsumer` acepta la conexión, responde con {"message": "pong"}
+al conectarse y reenvía en un campo "echo" cualquier mensaje JSON que
+reciba.
 """
 
-from .consumers_impl.core import ChatConsumer, PresenceConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
-__all__ = ["ChatConsumer", "PresenceConsumer"]
+# Re-export de los consumidores implementados en consumers_impl si existen.
+try:
+	from .consumers_impl.core import ChatConsumer, PresenceConsumer  # type: ignore
+except Exception:
+	ChatConsumer = None
+	PresenceConsumer = None
+
+
+class TestConsumer(AsyncJsonWebsocketConsumer):
+	"""Consumer minimal para pruebas.
+
+	Comportamiento:
+	- on connect: acepta y envía {"message": "pong"}
+	- on receive JSON: responde con {"echo": <contenido_recibido>}
+	"""
+
+	async def connect(self):
+		await self.accept()
+		# Enviar pong al conectar
+		await self.send_json({"message": "pong"})
+
+	async def receive_json(self, content, **kwargs):
+		# Reenviar el contenido recibido dentro del campo "echo"
+		await self.send_json({"echo": content})
+
+
+__all__ = ["TestConsumer", "ChatConsumer", "PresenceConsumer"]

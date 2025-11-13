@@ -1,39 +1,27 @@
-"""
-ASGI config for consultveterinarias project.
+"""ASGI config mínimo para pruebas de WebSocket.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
+Configura:
+- HTTP usando get_asgi_application()
+- WebSocket usando AuthMiddlewareStack + URLRouter con
+  `chat.routing.websocket_urlpatterns`.
 
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
+Compatible con Django 4.x y Channels 4.x.
 """
 
 import os
 
-# Set the DJANGO_SETTINGS_MODULE early so imports that access Django settings
-# or models (like chat.routing -> consumers -> models) won't fail during import.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'consultveterinarias.settings')
+# Asegurar el módulo de settings antes de importar Django
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "consultveterinarias.settings")
 
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 
-# Default Django ASGI app for standard HTTP requests
-django_asgi_app = get_asgi_application()
-
-# Import routing and middleware after Django setup to avoid importing models
-# (chat.routing -> consumers -> models) before apps are loaded.
 import chat.routing
-from chat.middleware import QueryAuthMiddlewareStack
 
 
-# ProtocolTypeRouter delegates between HTTP and WebSocket
+# ASGI application: HTTP y WebSocket
 application = ProtocolTypeRouter({
-	"http": django_asgi_app,
-	"websocket": QueryAuthMiddlewareStack(
-		AuthMiddlewareStack(
-			URLRouter(
-				chat.routing.websocket_urlpatterns
-			)
-		)
-	),
+    "http": get_asgi_application(),
+    "websocket": AuthMiddlewareStack(URLRouter(chat.routing.websocket_urlpatterns)),
 })

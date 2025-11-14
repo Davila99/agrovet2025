@@ -20,6 +20,7 @@ SECRET_KEY = 'django-insecure-fixf01*gy+umo#bo)jxwct3t+7kdv3+xra8rf2&3d)*fczj#y6
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # Application definition
@@ -185,7 +186,6 @@ CORS_ALLOWED_ORIGINS = [
     "https://agrovets.vercel.app", 
     "http://shante-klephtic-nahla.ngrok-free.dev",# deploy (sin / al final)
 ]
-
 # Allow the Authorization header for cross-origin requests (useful in dev)
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'authorization',

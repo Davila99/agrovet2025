@@ -183,7 +183,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",           # React local
     "https://agrovets.vercel.app", 
-    "https://shante-klephtic-nahla.ngrok-free.dev",# deploy (sin / al final)
+    "http://shante-klephtic-nahla.ngrok-free.dev",# deploy (sin / al final)
 ]
 
 # Allow the Authorization header for cross-origin requests (useful in dev)

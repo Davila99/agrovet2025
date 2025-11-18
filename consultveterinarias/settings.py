@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "chat",
     'drf_yasg',
     'media',
+    'foro.apps.ForoConfig',
 ]
 
 

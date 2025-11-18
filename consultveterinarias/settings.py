@@ -189,6 +189,7 @@ CORS_ALLOWED_ORIGINS = [
 # Allow the Authorization header for cross-origin requests (useful in dev)
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'authorization',
+    'ngrok-skip-browser-warning',
 ]
 # If you need to send cookies for session auth from the frontend, enable this
 CORS_ALLOW_CREDENTIALS = True

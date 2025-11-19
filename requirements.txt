@@ -18,4 +18,5 @@ daphne
 psycopg2-binary
 whitenoise>=6.4.0
 redis>=4.6.0
+mysqlclient
 

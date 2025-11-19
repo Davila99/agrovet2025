@@ -1,0 +1,104 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build, Test and Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check migrations (dry-run)
+        run: |
+          python manage.py makemigrations --check --dry-run
+
+      - name: Run Django checks
+        run: python manage.py check
+
+      - name: Run tests
+        run: |
+          coverage run --source='.' manage.py test
+          coverage report -m
+        env:
+          DJANGO_SETTINGS_MODULE: consultveterinarias.settings
+
+      - name: Upload coverage to artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ./coverage.xml || coverage.xml || .
+
+  deploy-example:
+    name: Example Deploy (simulated)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Simulate packaging
+        run: |
+          echo "Packaging release..."
+          tar -czf release.tar.gz . || true
+
+      - name: Simulate upload to remote server (SSH)
+        run: |
+          echo "Simulating scp release to remote server"
+          mkdir -p /tmp/fake-remote || true
+          cp release.tar.gz /tmp/fake-remote/ || true
+
+      - name: Simulate backup current release
+        run: |
+          echo "Creating backup of current release..."
+          mkdir -p /tmp/releases || true
+          if [ -d /var/www/agrovet ]; then
+            timestamp=$(date +%s)
+            cp -r /var/www/agrovet /tmp/releases/agrovet_${timestamp} || true
+            echo "Saved backup to /tmp/releases/agrovet_${timestamp}"
+          else
+            echo "/var/www/agrovet does not exist on runner (simulation)"
+          fi
+
+      - name: Simulate deploy: extract and migrate
+        run: |
+          echo "Extracting release to /tmp/fake-remote"
+          tar -xzf /tmp/fake-remote/release.tar.gz -C /tmp/fake-remote || true
+          echo "Applying migrations (simulation)"
+          # In a real deploy this would be: ssh user@host 'cd /var/www/agrovet && source venv/bin/activate && python manage.py migrate'
+          echo "python manage.py migrate --noinput (simulated)"
+
+      - name: Simulate restart services
+        run: |
+          echo "Restarting Gunicorn/Daphne (simulated)"
+          echo "systemctl restart gunicorn || systemctl restart daphne (simulation)"
+
+      - name: Simulate rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed — attempting rollback"
+          # Example: restore the most recent backup
+          ls -1t /tmp/releases || true
+          # In real environment we would rsync the backup back to /var/www/agrovet
+          echo "Rollback simulated"
+
+      - name: Notify (simple)
+        if: failure()
+        run: |
+          echo "Deployment or tests failed — check workflow logs"

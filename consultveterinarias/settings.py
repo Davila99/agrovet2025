@@ -2,29 +2,28 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from corsheaders.defaults import default_headers
+import pymysql
 
-# Cargar las variables del archivo .env
+# ------------------ PyMySQL como reemplazo de MySQLdb ------------------
+pymysql.install_as_MySQLdb()
+
+# ------------------ Cargar variables del .env ------------------
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# ------------------ Paths ------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ------------------ Seguridad ------------------
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fixf01*gy+umo#bo)jxwct3t+7kdv3+xra8rf2&3d)*fczj#y6')
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-fixf01*gy+umo#bo)jxwct3t+7kdv3+xra8rf2&3d)*fczj#y6'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['*']
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
-
-# Application definition
-
+# ------------------ Aplicaciones ------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -39,12 +38,11 @@ INSTALLED_APPS = [
     'profiles',
     'corsheaders',
     'channels',
-    "chat",
+    'chat',
     'drf_yasg',
     'media',
     'foro.apps.ForoConfig',
 ]
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -75,188 +73,103 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'consultveterinarias.wsgi.application'
+ASGI_APPLICATION = 'chat.asgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# ------------------ Base de datos ------------------
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
+        'NAME': os.getenv('DB_NAME', 'railway'),
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '3306'),
-        # Ensure connections use utf8mb4 so 4-byte unicode (emoji) is supported.
-        # This is the preferred permanent fix for emoji/storage issues.
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
         },
     }
 }
-# Don't print secrets to stdout; use logging if needed. Remove debug prints.
 
-
-
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
+# ------------------ Autenticación ------------------
+AUTH_USER_MODEL = "auth_app.User"
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-AUTH_USER_MODEL = "auth_app.User"
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
+# ------------------ Internacionalización ------------------
 LANGUAGE_CODE = 'es'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-# URL path for static files
-STATIC_URL = '/static/'
-
-# Where `collectstatic` will gather files for production deployment.
-# Ensure this exists and is writable by the deployment user before running collectstatic.
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Additional locations the staticfiles app will search for static files during
-# development and before collectstatic. Keep if you have a top-level `static/` dir.
-STATICFILES_DIRS = [BASE_DIR / 'static']
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-# 1. Configura Django para reconocer y confiar en el encabezado
-#    'X-Forwarded-Proto' enviado por ngrok/proxies.
-#    Esto indica a Django que si este encabezado está presente y tiene el valor 'https',
-#    la solicitud original fue segura, y debe generar enlaces con HTTPS.
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# 2. (Recomendado) Asegúrate de que Django use el host reenviado por ngrok
-#    si el nombre de host también parece estar causando problemas.
-USE_X_FORWARDED_HOST = True
-
-# 3. (Recomendado para seguridad en HTTPS)
-#    Esto asegura que las cookies de sesión y CSRF solo se envíen
-#    a través de conexiones HTTPS.
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Django REST Framework configuration - prefer TokenAuthentication first so
-# browser requests that include an Authorization: Token <key> header are
-# authenticated by token and don't get blocked by SessionAuthentication CSRF checks.
+# ------------------ Archivos estáticos ------------------
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+#STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# ------------------ Django REST Framework ------------------
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        # Accept both Bearer and Token schemes (BearerTokenAuthentication is a small subclass)
         'auth_app.api.authentication.BearerTokenAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
-    # For development ease we allow anonymous access by default.
-    # Change to IsAuthenticated in production.
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
 }
 
-# CORS settings
+# ------------------ CORS ------------------
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",           # React local
-    "https://agrovets.vercel.app", 
-    "http://shante-klephtic-nahla.ngrok-free.dev",# deploy (sin / al final)
+    "http://localhost:5173",
+    "https://agrovets.vercel.app",
+    "http://shante-klephtic-nahla.ngrok-free.dev",
 ]
-# Allow the Authorization header for cross-origin requests (useful in dev)
-CORS_ALLOW_HEADERS = list(default_headers) + [
-    'authorization',
-    'ngrok-skip-browser-warning',
-]
-# If you need to send cookies for session auth from the frontend, enable this
+CORS_ALLOW_HEADERS = list(default_headers) + ['authorization', 'ngrok-skip-browser-warning']
 CORS_ALLOW_CREDENTIALS = True
 
-# Use the chat.asgi application which installs the QueryAuthMiddlewareStack
-# so websocket connections can be authenticated via ?token=<key>
-ASGI_APPLICATION = 'chat.asgi.application'
-# Channel layer configuration
-# Default behavior: in development (DEBUG=True) use InMemoryChannelLayer so
-# websockets work without Redis. However, allow forcing Redis when a
-# REDIS_URL is present or when USE_REDIS_CHANNELS=1 is set in env.
+# ------------------ Channels (WebSockets) ------------------
 use_redis_channels = os.getenv('USE_REDIS_CHANNELS') == '1' or bool(os.getenv('REDIS_URL'))
 
-if use_redis_channels or not DEBUG:
-    # Support REDIS_URL (eg: redis://:password@host:port) which is convenient
-    # for cloud providers. If REDIS_URL is not set, fall back to host/port.
-    redis_url = os.getenv('REDIS_URL')
-    if redis_url:
-        hosts = [redis_url]
-    else:
-        hosts = [(
-            os.getenv('REDIS_HOST', '127.0.0.1'),
-            int(os.getenv('REDIS_PORT', '6379')),
-        )]
-
+if use_redis_channels:
+    redis_url = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": hosts},
+            "CONFIG": {"hosts": [redis_url]},
         },
     }
 else:
-    # Development-friendly in-memory channel layer (single-process only).
     CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
-SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
-SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
-SUPABASE_BUCKET = "agrovet-profile"
 
+# ------------------ Supabase ------------------
+SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://kprsxavfuqotrgfxyqbj.supabase.co')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R')
+SUPABASE_BUCKET = os.getenv('SUPABASE_BUCKET', 'agrovet-profile')
 
-# Simple logging configuration for development to surface chat events
+# ------------------ Logging ------------------
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'handlers': {
-        'console': {'class': 'logging.StreamHandler'},
-    },
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
     'loggers': {
         'django': {'handlers': ['console'], 'level': 'INFO'},
         'chat': {'handlers': ['console'], 'level': 'DEBUG'},
     },
 }
 
-# ------------------ Redis cache configuration ------------------
-# Use REDIS_URL env var if provided, otherwise fallback to local redis
+# ------------------ Cache con Redis ------------------
 REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
-
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
     }
 }
-
-# Cache timeouts
-DEFAULT_CACHE_TIMEOUT = 60 * 5  # 5 minutes
-
+DEFAULT_CACHE_TIMEOUT = 60 * 5  # 5 minutos

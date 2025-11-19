@@ -79,14 +79,15 @@ ASGI_APPLICATION = 'chat.asgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'railway'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '3306'),
+        'NAME': os.getenv('DB_NAME', 'defaultdb'),  # Nombre de la DB en Aiven
+        'USER': os.getenv('DB_USER', 'avnadmin'),   # Usuario de Aiven
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),   # Contraseña de Aiven
+        'HOST': os.getenv('DB_HOST', 'mysql-1168837b-davilaeliseo453-fd06.d.aivencloud.com'),
+        'PORT': os.getenv('DB_PORT', '17576'),      # Puerto de Aiven
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
+            'ssl': {'ca': '/path/to/ca.pem'},       # Ruta al certificado SSL de Aiven
         },
     }
 }

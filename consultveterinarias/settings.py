@@ -83,14 +83,15 @@ DATABASES = {
         'USER': os.getenv('DB_USER', 'avnadmin'),
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', 'mysql-1168837b-davilaeliseo453-fd06.d.aivencloud.com'),
-        'PORT': os.getenv('DB_PORT', '17576'),
+        'PORT': int(os.getenv('DB_PORT', 17576)),
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
-            'ssl': {'ssl-mode': 'REQUIRED'},  # IMPORTANTE: Aiven necesita SSL
+            'ssl': {'ssl-mode': 'REQUIRED'},  # Aiven necesita SSL
         },
     }
 }
+
 
 # ------------------ Autenticación ------------------
 AUTH_USER_MODEL = "auth_app.User"

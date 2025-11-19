@@ -48,8 +48,9 @@ class MediaViewSet(viewsets.ModelViewSet):
             # If an image is present, log some attributes for diagnosis
             if image:
                 try:
+                    # Avoid using reserved LogRecord keys like 'name'
                     logger.info('MediaViewSet.create incoming file', extra={
-                        'name': getattr(image, 'name', None),
+                        'file_name': getattr(image, 'name', None),
                         'size': getattr(image, 'size', None),
                         'content_type': getattr(image, 'content_type', None)
                     })

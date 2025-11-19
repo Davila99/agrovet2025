@@ -16,6 +16,7 @@ class Post(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
     media = models.ForeignKey('media.Media', null=True, blank=True, on_delete=models.SET_NULL, related_name='posts')
+    community = models.ForeignKey('Community', null=True, blank=True, on_delete=models.SET_NULL, related_name='posts')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     views_count = models.PositiveIntegerField(default=0)
@@ -100,3 +101,73 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification {self.notif_type} -> {self.recipient}"
+
+
+class Community(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
+    short_description = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_communities')
+    members = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='communities', blank=True)
+    members_count = models.PositiveIntegerField(default=0)
+    cover_image = models.CharField(max_length=500, blank=True, null=True, help_text='Optional URL to a cover image for the community')
+    avatar = models.CharField(max_length=500, blank=True, null=True, help_text='Optional URL for community avatar (round)')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-members_count', '-created_at']
+
+    def __str__(self):
+        return self.name
+
+
+# Signals: keep members_count in sync and auto-assign default communities on user creation
+from django.db.models.signals import m2m_changed, post_save
+from django.dispatch import receiver
+
+
+@receiver(m2m_changed, sender=Community.members.through)
+def update_members_count(sender, instance, action, pk_set, **kwargs):
+    """
+    Update `members_count` whenever members are added/removed.
+    """
+    if action in ("post_add", "post_remove", "post_clear"):
+        instance.members_count = instance.members.count()
+        instance.save(update_fields=["members_count"])
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def add_user_to_default_communities(sender, instance, created, **kwargs):
+    """
+    When a new user is created, add them to default communities based on their role.
+    This will create the community if it doesn't exist.
+    """
+    if not created:
+        return
+
+    role = getattr(instance, 'role', None)
+    if not role:
+        return
+
+    # Mapping from role value to list of community slugs to join
+    role_map = {
+        'consumer': ['consumidores'],
+        'businessman': ['agroveterinarias'],
+        'veterinario': ['veterinarios'],
+        'agronomo': ['agronomos'],
+        'Specialist': ['especialistas'],
+    }
+
+    slugs = role_map.get(role, [])
+    for slug in slugs:
+        community, created_c = Community.objects.get_or_create(
+            slug=slug,
+            defaults={
+                'name': slug.replace('-', ' ').title(),
+                'short_description': '',
+                'created_by': None,
+            }
+        )
+        # add member
+        community.members.add(instance)

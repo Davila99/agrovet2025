@@ -1,11 +1,12 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
-from .views import PostViewSet, CommentViewSet, ReactionViewSet, NotificationViewSet
+from .views import PostViewSet, CommentViewSet, ReactionViewSet, NotificationViewSet, CommunityViewSet
 
 router = DefaultRouter()
 router.register(r'posts', PostViewSet, basename='foro-posts')
 router.register(r'comments', CommentViewSet, basename='foro-comments')
 router.register(r'notifications', NotificationViewSet, basename='foro-notifications')
+router.register(r'communities', CommunityViewSet, basename='foro-communities')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -6,15 +6,19 @@ from django.contrib.contenttypes.models import ContentType
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import F
-from .models import Post, Comment, Reaction, Notification
-from .serializers import PostSerializer, CommentSerializer, ReactionSerializer, NotificationSerializer
+from .models import Post, Comment, Reaction, Notification, Community
+from .serializers import PostSerializer, CommentSerializer, ReactionSerializer, NotificationSerializer, CommunitySerializer
 from media.models import Media
 from django.conf import settings
 from django.utils import timezone
+from auth_app.utils.supabase_utils import upload_image_to_supabase
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all().select_related('author', 'media')
+    queryset = Post.objects.all().select_related('author', 'media', 'community')
     serializer_class = PostSerializer
 
     def get_permissions(self):
@@ -28,7 +32,12 @@ class PostViewSet(viewsets.ModelViewSet):
         media = None
         if media_id:
             media = get_object_or_404(Media, pk=media_id)
-        serializer.save(author=self.request.user, media=media)
+        # optional community id
+        community = None
+        community_id = self.request.data.get('community_id') or self.request.data.get('community')
+        if community_id:
+            community = get_object_or_404(Community, pk=community_id)
+        serializer.save(author=self.request.user, media=media, community=community)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def relevant(self, request):
@@ -147,3 +156,76 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         qs = Notification.objects.filter(recipient=request.user, id__in=ids)
         qs.update(read=True)
         return Response({'updated': qs.count()})
+
+
+class CommunityViewSet(viewsets.ModelViewSet):
+    queryset = Community.objects.all()
+    serializer_class = CommunitySerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        # set creator automatically
+        comm = serializer.save(created_by=self.request.user)
+        # add creator as member by default
+        try:
+            comm.members.add(self.request.user)
+            comm.members_count = comm.members.count()
+            comm.save(update_fields=['members_count'])
+        except Exception:
+            pass
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def join(self, request, pk=None):
+        comm = get_object_or_404(Community, pk=pk)
+        comm.members.add(request.user)
+        comm.members_count = comm.members.count()
+        comm.save(update_fields=['members_count'])
+        return Response({'joined': True})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def leave(self, request, pk=None):
+        comm = get_object_or_404(Community, pk=pk)
+        comm.members.remove(request.user)
+        comm.members_count = comm.members.count()
+        comm.save(update_fields=['members_count'])
+        return Response({'left': True})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def upload_cover(self, request, pk=None):
+        """Upload a cover image for the community. Accepts multipart/form-data with file field 'file'."""
+        comm = get_object_or_404(Community, pk=pk)
+        f = request.FILES.get('file')
+        if not f:
+            return Response({'detail': 'file required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            url = upload_image_to_supabase(f, folder='communities')
+        except Exception as e:
+            logger.exception('Exception uploading community cover to supabase')
+            return Response({'detail': 'upload failed', 'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+        if not url:
+            return Response({'detail': 'upload failed'}, status=status.HTTP_502_BAD_GATEWAY)
+        comm.cover_image = url
+        comm.save(update_fields=['cover_image'])
+        return Response({'cover_image': url})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def upload_avatar(self, request, pk=None):
+        """Upload an avatar image for the community. Accepts multipart/form-data with file field 'file'."""
+        comm = get_object_or_404(Community, pk=pk)
+        f = request.FILES.get('file')
+        if not f:
+            return Response({'detail': 'file required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            url = upload_image_to_supabase(f, folder='communities/avatars')
+        except Exception as e:
+            logger.exception('Exception uploading community avatar to supabase')
+            return Response({'detail': 'upload failed', 'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+        if not url:
+            return Response({'detail': 'upload failed'}, status=status.HTTP_502_BAD_GATEWAY)
+        comm.avatar = url
+        comm.save(update_fields=['avatar'])
+        return Response({'avatar': url})

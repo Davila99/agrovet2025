@@ -1,14 +1,14 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from .models import Post, Comment, Reaction, Notification
+from .models import Post, Comment, Reaction, Notification, Community
 from media.models import Media
 
 
 class UserBriefSerializer(serializers.Serializer):
     id = serializers.IntegerField(source='pk')
-    full_name = serializers.CharField()
-    profile_picture = serializers.CharField(allow_null=True)
+    name = serializers.CharField(source='full_name')
+    avatar = serializers.CharField(source='profile_picture', allow_null=True)
 
 
 class MediaSerializer(serializers.ModelSerializer):
@@ -18,7 +18,7 @@ class MediaSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    user = UserBriefSerializer(source='user', read_only=True)
+    user = UserBriefSerializer(read_only=True)
     replies = serializers.SerializerMethodField()
     popularity = serializers.SerializerMethodField()
 
@@ -38,20 +38,46 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class PostSerializer(serializers.ModelSerializer):
-    author = UserBriefSerializer(source='author', read_only=True)
+    author = UserBriefSerializer(read_only=True)
     comments = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
+    reactions_count = serializers.SerializerMethodField()
     media = MediaSerializer(read_only=True)
+    community = serializers.SerializerMethodField()
+
+    community_id = serializers.IntegerField(write_only=True, required=False)
 
     class Meta:
         model = Post
-        fields = ['id', 'author', 'title', 'content', 'media', 'created_at', 'updated_at', 'views_count', 'relevance_score', 'comments']
-        read_only_fields = ['created_at', 'updated_at', 'views_count', 'relevance_score', 'comments']
+        fields = ['id', 'author', 'title', 'content', 'media', 'community', 'community_id', 'created_at', 'updated_at', 'views_count', 'relevance_score', 'comments_count', 'reactions_count', 'comments']
+        read_only_fields = ['created_at', 'updated_at', 'views_count', 'relevance_score', 'comments', 'comments_count', 'reactions_count']
 
     def get_comments(self, obj):
         # top-level comments ordered by popularity
         qs = obj.comments.filter(parent__isnull=True)
         qs = sorted(qs, key=lambda c: (c.reactions_count + c.replies_count), reverse=True)
         return CommentSerializer(qs, many=True, context=self.context).data
+
+    def get_comments_count(self, obj):
+        try:
+            return obj.comments.count()
+        except Exception:
+            return 0
+
+    def get_reactions_count(self, obj):
+        # Count reactions linked to this post
+        try:
+            from .models import Reaction
+            from django.contrib.contenttypes.models import ContentType
+            ct = ContentType.objects.get_for_model(obj.__class__)
+            return Reaction.objects.filter(content_type=ct, object_id=obj.id).count()
+        except Exception:
+            return 0
+
+    def get_community(self, obj):
+        if obj.community is None:
+            return None
+        return CommunitySerializer(obj.community, context=self.context).data
 
 
 class ReactionSerializer(serializers.ModelSerializer):
@@ -70,3 +96,10 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ['id', 'recipient', 'actor', 'notif_type', 'summary', 'read', 'created_at']
         read_only_fields = ['created_at']
+
+
+class CommunitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Community
+        fields = ['id', 'name', 'slug', 'short_description', 'description', 'cover_image', 'avatar', 'members_count', 'created_by', 'created_at']
+        read_only_fields = ['members_count', 'created_at', 'created_by']

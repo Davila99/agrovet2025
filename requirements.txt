@@ -15,4 +15,7 @@ drf-yasg
 python-dotenv
 requests
 daphne
+redis
+coverage
+
 

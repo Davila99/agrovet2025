@@ -1,0 +1,214 @@
+version: '3.8'
+
+services:
+  # API Gateway - Traefik
+  traefik:
+    image: traefik:v2.12
+    container_name: traefik-gateway
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+
+  # Redis for cache and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: redis-agrovet
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    container_name: zookeeper-agrovet
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/bitnami
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+
+  # Kafka for event streaming
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: kafka-agrovet
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+      - KAFKA_BROKER_ID=1
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_NUM_PARTITIONS=3
+      - KAFKA_DEFAULT_REPLICATION_FACTOR=1
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/bitnami
+    depends_on:
+      - zookeeper
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL databases (one per service)
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: postgres-auth
+    environment:
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=agrovet
+      - POSTGRES_PASSWORD=agrovet_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agrovet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-profiles:
+    image: postgres:15-alpine
+    container_name: postgres-profiles
+    environment:
+      - POSTGRES_DB=profiles_db
+      - POSTGRES_USER=agrovet
+      - POSTGRES_PASSWORD=agrovet_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-profiles-data:/var/lib/postgresql/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+
+  postgres-marketplace:
+    image: postgres:15-alpine
+    container_name: postgres-marketplace
+    environment:
+      - POSTGRES_DB=marketplace_db
+      - POSTGRES_USER=agrovet
+      - POSTGRES_PASSWORD=agrovet_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-marketplace-data:/var/lib/postgresql/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+
+  postgres-chat:
+    image: postgres:15-alpine
+    container_name: postgres-chat
+    environment:
+      - POSTGRES_DB=chat_db
+      - POSTGRES_USER=agrovet
+      - POSTGRES_PASSWORD=agrovet_dev
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-chat-data:/var/lib/postgresql/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+
+  postgres-media:
+    image: postgres:15-alpine
+    container_name: postgres-media
+    environment:
+      - POSTGRES_DB=media_db
+      - POSTGRES_USER=agrovet
+      - POSTGRES_PASSWORD=agrovet_dev
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres-media-data:/var/lib/postgresql/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+
+  postgres-foro:
+    image: postgres:15-alpine
+    container_name: postgres-foro
+    environment:
+      - POSTGRES_DB=foro_db
+      - POSTGRES_USER=agrovet
+      - POSTGRES_PASSWORD=agrovet_dev
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres-foro-data:/var/lib/postgresql/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+
+  # MinIO for S3-compatible storage (alternative to Supabase for local dev)
+  minio:
+    image: minio/minio:latest
+    container_name: minio-agrovet
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Console
+    volumes:
+      - minio-data:/data
+    networks:
+      - agrovet-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  redis-data:
+  zookeeper-data:
+  kafka-data:
+  postgres-auth-data:
+  postgres-profiles-data:
+  postgres-marketplace-data:
+  postgres-chat-data:
+  postgres-media-data:
+  postgres-foro-data:
+  minio-data:
+
+networks:
+  agrovet-network:
+    driver: bridge
+

@@ -1,0 +1,2 @@
+# Foro Service - Django application
+

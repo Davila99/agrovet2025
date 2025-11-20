@@ -1,0 +1,2 @@
+# Profiles Service - Django application
+

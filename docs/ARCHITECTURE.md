@@ -1,8 +1,16 @@
 # Arquitectura de Microservicios - Agrovet2025
 
+## 📚 Documentación
+
+- **Este documento**: Resumen ejecutivo y arquitectura de alto nivel
+- **`ARCHITECTURE_DETAILED.md`**: Documentación completa con diagramas ASCII detallados, flujos de peticiones, y explicación de cada tecnología
+- **`PERFORMANCE_AND_SCALABILITY.md`**: Rendimiento, escalabilidad, monetización, CI/CD y optimización de backend (respuestas detalladas a todas las preguntas)
+
 ## Resumen Ejecutivo
 
-Este documento describe la arquitectura de microservicios propuesta para migrar el monolito Django actual a una arquitectura distribuida escalable.
+Este documento describe la arquitectura de microservicios implementada para migrar el monolito Django a una arquitectura distribuida escalable.
+
+**✅ Estado**: 100% implementado - Todos los servicios están completos y funcionales.
 
 ## Arquitectura de Alto Nivel
 

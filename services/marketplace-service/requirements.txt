@@ -1,0 +1,14 @@
+Django>=4.2,<5.0
+djangorestframework
+django-cors-headers
+Pillow
+drf-yasg
+python-dotenv
+psycopg2-binary
+django-redis
+django-filter
+redis
+gunicorn
+confluent-kafka
+requests
+

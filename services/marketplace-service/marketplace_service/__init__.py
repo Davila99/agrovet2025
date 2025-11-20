@@ -1,0 +1,2 @@
+# Marketplace Service - Django application
+

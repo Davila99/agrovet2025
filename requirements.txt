@@ -1,3 +1,4 @@
+channels
 channels-redis
 coverage
 Django>=4.2,<5.0
@@ -18,4 +19,4 @@ twilio
 whitenoise>=6.4.0
 daphne
 django-redis
-gunicorn 
+gunicorn

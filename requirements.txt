@@ -19,3 +19,4 @@ twilio
 whitenoise>=6.4.0
 daphne
 django-redis
+gunicorn 

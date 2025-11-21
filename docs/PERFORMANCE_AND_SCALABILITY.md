@@ -1,12 +1,19 @@
 # Rendimiento y Escalabilidad - Agrovet2025
 
+## ⚠️ NOTA IMPORTANTE SOBRE LOS DATOS
+
+**Este documento contiene estimaciones teóricas basadas en la arquitectura implementada.**
+---
+
 ## 📊 Rendimiento y Escalabilidad
 
 ### ¿Cuántos usuarios simultáneos puede soportar actualmente la aplicación?
 
+> ⚠️ **NOTA**: Los siguientes datos son **estimaciones teóricas**. Para datos reales, ejecuta las pruebas con `python scripts/performance_test.py` cuando los servicios estén corriendo.
+
 #### Capacidad Actual (Arquitectura de Microservicios)
 
-**Estimación Conservadora:**
+**Estimación Conservadora (Teórica):**
 - **Usuarios concurrentes simultáneos**: 500-1,000 usuarios
 - **Requests por segundo (RPS)**: 200-500 RPS
 - **Usuarios activos diarios**: 5,000-10,000 usuarios
@@ -64,6 +71,8 @@ Escenario: 5,000 usuarios concurrentes
 ---
 
 ### ¿Qué pruebas de carga realizaron? (ej. JMeter, Locust, k6)
+
+> ⚠️ **NOTA**: Las herramientas están configuradas pero las pruebas reales requieren que los servicios estén corriendo. Ver `PERFORMANCE_REAL_METRICS.md` para instrucciones.
 
 #### Herramientas de Pruebas de Carga Implementadas
 
@@ -205,15 +214,20 @@ Configuración recomendada:
 
 ### ¿Cuál fue el comportamiento de la app bajo 100 usuarios concurrentes?
 
-#### Resultados de Pruebas con 100 Usuarios Concurrentes
+> ⚠️ **NOTA**: Los siguientes datos son **estimaciones teóricas**. Para datos reales, ejecuta:
+> ```bash
+> locust -f load_tests/locustfile.py --host=http://localhost --users 100 --spawn-rate 10 --run-time 10m
+> ```
 
-**Configuración de Prueba:**
+#### Resultados Estimados con 100 Usuarios Concurrentes (Teóricos)
+
+**Configuración de Prueba Propuesta:**
 - **Usuarios**: 100 concurrentes
 - **Duración**: 10 minutos
 - **Ramp-up**: 2 minutos (10 usuarios/segundo)
 - **Escenario**: Navegación típica (login, ver marketplace, ver perfiles, ver foro)
 
-**Métricas Obtenidas:**
+**Métricas Estimadas (Teóricas):**
 
 | Métrica | Valor | Estado |
 |---------|-------|--------|
@@ -276,16 +290,16 @@ Latencia (ms)
      0    2    4    6    8   10   (minutos)
 ```
 
-**Observaciones Clave:**
+**Observaciones Clave (Basadas en Arquitectura):**
 
-✅ **Fortalezas:**
+✅ **Fortalezas Esperadas:**
 - Sistema maneja 100 usuarios concurrentes sin problemas
 - Latencia P95 < 500ms (objetivo cumplido)
 - Tasa de errores < 1% (excelente)
 - Cache efectivo (75-80% hit ratio)
 - Sin degradación de rendimiento durante la prueba
 
-⚠️ **Áreas de Mejora:**
+⚠️ **Áreas de Mejora Potenciales:**
 - Marketplace Service tiene latencia P95 más alta (420ms)
 - Algunos queries complejos pueden optimizarse
 - Considerar más réplicas para Marketplace en producción
@@ -618,7 +632,7 @@ def process_image_upload(media_id):
     pass
 ```
 
-**Métricas Después de Optimizaciones:**
+**Métricas Estimadas Después de Optimizaciones (Teóricas):**
 
 | Métrica | Antes | Después | Mejora |
 |---------|-------|---------|--------|

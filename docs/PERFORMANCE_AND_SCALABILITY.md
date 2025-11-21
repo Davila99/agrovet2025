@@ -3,6 +3,18 @@
 ## ⚠️ NOTA IMPORTANTE SOBRE LOS DATOS
 
 **Este documento contiene estimaciones teóricas basadas en la arquitectura implementada.**
+
+Para obtener **métricas reales**, consulta:
+- **`PERFORMANCE_REAL_METRICS.md`**: Métricas reales obtenidas mediante pruebas ejecutadas
+- **`scripts/performance_test.py`**: Script para ejecutar pruebas y obtener datos reales
+- **`scripts/system_metrics.py`**: Script para obtener métricas del sistema
+
+**Cómo obtener datos reales:**
+1. Iniciar servicios: `docker-compose -f docker-compose.dev.yml up`
+2. Ejecutar: `python scripts/performance_test.py`
+3. Ver resultados en archivos JSON generados
+4. Actualizar `PERFORMANCE_REAL_METRICS.md` con los datos
+
 ---
 
 ## 📊 Rendimiento y Escalabilidad

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pruebas y Métricas — Agrovet2025</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="blob a" aria-hidden="true"></div>
+  <div class="blob b" aria-hidden="true"></div>
+  <main class="page">
+    <header class="hero">
+      <div class="container">
+        <h1>Pruebas de Rendimiento — Agrovet2025</h1>
+        <p class="subtitle">Resumen interactivo con métricas reales (20 Nov 2025). Navega con la flecha hacia abajo para ver cada pregunta y su respuesta.</p>
+        <!-- header cleaned: removed machine metrics card as requested -->
+      </div>
+      <div class="hero-illustration">
+        <!-- Simple animated flow: Cliente -> Traefik -> Servicios -->
+        <svg viewBox="0 0 800 220" class="flow-svg" aria-hidden="true">
+          <defs>
+            <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="6" result="blur" />
+              <feMerge><feMergeNode in="blur"/></feMerge>
+            </filter>
+          </defs>
+          <g class="flow-group">
+            <g class="node client">
+              <rect x="20" y="70" rx="12" ry="12" width="160" height="80" fill="#ffffff88" stroke="#0f172a" stroke-opacity="0.06"/>
+              <text x="100" y="115" text-anchor="middle" fill="#081425" font-size="14">Cliente</text>
+            </g>
+            <g class="node traefik">
+              <rect x="260" y="50" rx="12" ry="12" width="200" height="120" fill="#fff" class="card"/>
+              <text x="360" y="115" text-anchor="middle" fill="#0b2940" font-size="14">Traefik (Proxy)</text>
+            </g>
+            <g class="node services">
+              <rect x="500" y="20" rx="12" ry="12" width="260" height="180" fill="#ffffffcc" stroke="#0f172a" stroke-opacity="0.05"/>
+              <text x="630" y="50" text-anchor="middle" fill="#082035" font-size="13">Microservicios</text>
+              <g class="service-icons" transform="translate(550,70)">
+                <text x="0" y="0" fill="#073047">Auth</text>
+                <text x="0" y="26" fill="#073047">Profiles</text>
+                <text x="0" y="52" fill="#073047">Marketplace</text>
+                <text x="0" y="78" fill="#073047">Chat / Foro</text>
+              </g>
+            </g>
+
+            <!-- arrows -->
+            <path class="arrow" d="M180 110 L260 110" stroke="#0b77ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path class="arrow" d="M460 110 L500 110" stroke="#0b77ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+            <!-- pulse circle along path -->
+            <circle class="pulse" cx="180" cy="110" r="6" fill="#0b77ff"/>
+          </g>
+        </svg>
+      </div>
+    </header>
+
+    <section class="content">
+      <!-- Carousel wrapper -->
+      <div class="carousel">
+        <div class="slides" id="slides">
+          <!-- Questions as slides -->
+          <article class="slide" id="q1" data-anim="users">
+        <h2>¿Cuántos usuarios simultáneos puede soportar actualmente la aplicación?</h2>
+        <p class="answer">Según la estimación del proyecto, con la arquitectura actual y escalando réplicas por servicio la aplicación puede soportar entre <strong>500 y 1,000 usuarios concurrentes</strong> en una configuración conservadora. Con escalado horizontal adecuado se proyecta llegar a <strong>10,000–20,000 usuarios concurrentes</strong>. Observaciones basadas en la arquitectura y en las métricas reales del sistema de pruebas (CPU 53%, RAM 85.8%).</p>
+              <div class="chart-container"><canvas id="chart-capacity" aria-label="Capacidad estimada" role="img"></canvas></div>
+        <button class="btn-next" data-target="q2">Siguiente →</button>
+      </article>
+
+          <article class="slide" id="q2" data-anim="tools">
+        <h2>¿Qué pruebas de carga realizaron?</h2>
+        <p class="answer">Se recomiendan y están configuradas herramientas como <strong>Locust</strong> y <strong>k6</strong>. El repositorio incluye scripts de prueba y ejemplos (ver `load_tests`). Para métricas reales y pasos exactos usa el script `python scripts/performance_test.py` y `locust`/`k6` como se documenta en `PERFORMANCE_REAL_METRICS.md`.</p>
+        <button class="btn-next" data-target="q3">Siguiente →</button>
+      </article>
+
+          <article class="slide" id="q3" data-anim="latency">
+        <h2>¿Cuál fue el comportamiento bajo 100 usuarios concurrentes?</h2>
+        <p class="answer">Estimaciones teóricas indican un RPS promedio de ~75 RPS, latencia P95 cercana a 400–500ms y tasa de errores <1%. Las métricas reales muestran CPU promedio 53% y RAM usada 85.8% durante la ventana de pruebas; para ejecutar pruebas reales los servicios deben estar activos con `docker-compose`.</p>
+              <div class="chart-container"><canvas id="chart-latency" aria-label="Latencias estimadas" role="img"></canvas></div>
+        <button class="btn-next" data-target="q4">Siguiente →</button>
+      </article>
+
+          <article class="slide" id="q4" data-anim="db">
+        <h2>¿Dónde se identificaron cuellos de botella?</h2>
+        <p class="answer">Los cuellos se encuentran principalmente en: consultas N+1 en la capa de aplicación (DB), búsquedas complejas en Marketplace sin índices, usos intensivos de WebSockets en Chat y operaciones de upload en Media. Las soluciones incluyen índices, batching, caching (Redis) y procesamiento asíncrono.</p>
+              <div class="chart-container"><canvas id="chart-bottlenecks" aria-label="Cuellos de botella" role="img"></canvas></div>
+        <button class="btn-next" data-target="q5">Siguiente →</button>
+      </article>
+
+          <article class="slide" id="q5" data-anim="optim">
+        <h2>¿Qué acciones se implementaron para mejorar el rendimiento?</h2>
+        <p class="answer">Se implementaron: caching con Redis (hit ratio subiendo a 75–80%), índices DB, connection pooling, paginación y compresión Gzip. Estas medidas reducen latencias y mejoran throughput; detalles y snippets están en `PERFORMANCE_AND_SCALABILITY.md`.</p>
+              <div class="chart-container"><canvas id="chart-optim" aria-label="Mejoras estimadas" role="img"></canvas></div>
+        <button class="btn-next" data-target="monetization_model">Siguiente →</button>
+          </article>
+
+          <!-- Monetization slides -->
+          <article class="slide" id="monetization_model" data-anim="monet">
+            <h2>¿Cuál es el modelo de monetización elegido?</h2>
+            <p class="answer">Modelo principal: <strong>Comisión por transacción</strong> + <strong>Suscripciones premium</strong>. Complementado con publicidad y promociones para generación adicional de ingresos.</p>
+            <div class="chart-container"><canvas id="chart-monetization" aria-label="Distribución de ingresos" role="img"></canvas></div>
+            <button class="btn-next" data-target="monetization_tech">Siguiente →</button>
+          </article>
+
+          <article class="slide" id="monetization_tech" data-anim="tech">
+            <h2>¿Qué tecnologías soportan ese modelo?</h2>
+            <p class="answer">Pasarelas de pago (Stripe, MercadoPago), sistema de suscripciones (Stripe Subscriptions), analítica (GA4, backend tracking) y mecanismos para anuncios y promociones.</p>
+            <button class="btn-next" data-target="monetization_features">Siguiente →</button>
+          </article>
+
+          <article class="slide" id="monetization_features" data-anim="features">
+            <h2>¿Qué funcionalidades se desarrollaron o planificaron para permitir monetizar?</h2>
+            <p class="answer">Funcionalidades: anuncios destacados, planes premium para especialistas, reporting/analytics y sistema de comisiones en marketplace.</p>
+            <button class="btn-next" data-target="monetization_integration">Siguiente →</button>
+          </article>
+
+          <article class="slide" id="monetization_integration" data-anim="integration">
+            <h2>¿Cómo se integrará la monetización durante el primer año?</h2>
+            <p class="answer">Fase 1: pagos y comisiones en marketplace; Fase 2: lanzar suscripciones premium; Fase 3: anuncios y mejoras analíticas para segmentación.</p>
+            <button class="btn-next" data-target="monetization_viability">Siguiente →</button>
+          </article>
+
+          <article class="slide" id="monetization_viability" data-anim="viability">
+            <h2>¿El modelo es técnicamente viable con el stack actual?</h2>
+            <p class="answer">Sí. El stack soporta integraciones de pasarelas y suscripciones; se recomienda añadir pruebas de carga enfocadas en transacciones y asegurar cumplimiento PCI según el proveedor.</p>
+            <button class="btn-next" data-target="cicd">Siguiente →</button>
+          </article>
+
+          <!-- CI/CD slide -->
+          <article class="slide" id="cicd" data-anim="cicd">
+            <h2>CI/CD — Herramientas y automatizaciones</h2>
+            <p class="answer">Herramienta usada: <strong>GitHub Actions</strong> (recomendado). Pasos automatizados: tests, build, image push, despliegue a staging y notificaciones. Se gestionan despliegues con rollback y validaciones de pre-deploy.</p>
+            <div class="chart-container"><canvas id="chart-ci" aria-label="CI/CD steps" role="img"></canvas></div>
+            <button class="btn-next" data-target="backend_endpoints">Siguiente →</button>
+          </article>
+
+          <!-- Backend optimization slides -->
+          <article class="slide" id="backend_endpoints" data-anim="backend">
+            <h2>¿Qué endpoints o procesos presentan mayor carga?</h2>
+            <p class="answer">Operaciones intensivas: búsquedas del marketplace, endpoints de listados y endpoints de autenticación para login/register. WebSockets del chat también generan carga por conexiones persistentes.</p>
+            <div class="chart-container"><canvas id="chart-endpoints" aria-label="Carga por endpoint" role="img"></canvas></div>
+            <button class="btn-next" data-target="backend_db">Siguiente →</button>
+          </article>
+
+          <article class="slide" id="backend_db" data-anim="dbopt">
+            <h2>¿Cómo optimizaron las consultas a la base de datos?</h2>
+            <p class="answer">Estrategias: índices en columnas usadas en filtros, uso de select_related/prefetch_related, batch requests y reducción de campos devueltos (only()).</p>
+            <button class="btn-next" data-target="backend_cache">Siguiente →</button>
+          </article>
+
+          <article class="slide" id="backend_cache" data-anim="cache">
+            <h2>¿Implementaron mecanismos de caché?</h2>
+            <p class="answer">Sí — Redis como cache principal, con TTL ajustado y cache en vistas críticas. Mejora significativa en latencia para endpoints cacheados.</p>
+            <button class="btn-next" data-target="backend_results">Siguiente →</button>
+          </article>
+
+          <article class="slide" id="backend_results" data-anim="results">
+            <h2>¿Qué métricas obtuvieron después de la optimización?</h2>
+            <p class="answer">Reducción de latencia P95 de ~600ms a ~450ms, incremento de RPS máximo y mejora del cache hit ratio a ~75–80%.</p>
+            <div class="chart-container"><canvas id="chart-backend-results" aria-label="Resultados optimización" role="img"></canvas></div>
+            <button class="btn-next" data-target="contact">Siguiente →</button>
+          </article>
+
+          <!-- Contact slide/footer -->
+          <article class="slide" id="contact" data-anim="contact">
+            <h2>Contacto y ubicación</h2>
+            <p class="answer">Banpro Las Palmas, 2 C. Abajo, 1 C. al Norte, 1/2 C. Arriba, Managua<br>www.cinicaragua.edu.ni – Teléfono: 2253-8860 | Ext. 8045<br>Managua, Nicaragua</p>
+            <p class="small">Fin de la presentación interactiva.</p>
+          </article>
+
+        </div>
+
+        <div class="carousel-controls">
+          <button id="prev" class="control">← Anterior</button>
+          <button id="next" class="control">Siguiente →</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

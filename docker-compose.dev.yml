@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # API Gateway - Traefik
   traefik:
-    image: traefik:v2.12
+    image: traefik:v2.11
     container_name: traefik-gateway
     command:
       - "--api.insecure=true"
@@ -13,7 +13,7 @@ services:
       - "--log.level=INFO"
     ports:
       - "80:80"
-      - "8080:8080"  # Traefik dashboard
+      - "8080:8080" # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -33,14 +33,14 @@ services:
       - agrovet-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 3
 
   # Zookeeper for Kafka
   zookeeper:
-    image: bitnami/zookeeper:latest
+    image: bitnamilegacy/zookeeper:3.9
     container_name: zookeeper-agrovet
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
@@ -54,7 +54,7 @@ services:
 
   # Kafka for event streaming
   kafka:
-    image: bitnami/kafka:latest
+    image: bitnamilegacy/kafka:3.6
     container_name: kafka-agrovet
     environment:
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
@@ -73,7 +73,7 @@ services:
       - agrovet-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -94,7 +94,7 @@ services:
       - agrovet-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agrovet"]
+      test: [ "CMD-SHELL", "pg_isready -U agrovet" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -419,15 +419,15 @@ services:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
     ports:
-      - "9000:9000"  # S3 API
-      - "9001:9001"  # Console
+      - "9000:9000" # S3 API
+      - "9001:9001" # Console
     volumes:
       - minio-data:/data
     networks:
       - agrovet-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -444,7 +444,7 @@ volumes:
   postgres-foro-data:
   minio-data:
 
+
 networks:
   agrovet-network:
     driver: bridge
-

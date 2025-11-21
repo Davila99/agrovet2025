@@ -58,13 +58,16 @@ services:
     container_name: kafka-agrovet
     environment:
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       - KAFKA_BROKER_ID=1
       - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_NUM_PARTITIONS=3
       - KAFKA_DEFAULT_REPLICATION_FACTOR=1
     ports:
       - "9092:9092"
+      - "9094:9094"
     volumes:
       - kafka-data:/bitnami
     depends_on:
@@ -94,7 +97,7 @@ services:
       - agrovet-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U agrovet" ]
+      test: [ "CMD-SHELL", "pg_isready -U agrovet -d auth_db" ]
       interval: 10s
       timeout: 5s
       retries: 5

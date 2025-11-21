@@ -11,7 +11,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
-supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+# Initialize Supabase client
+supabase = None
+if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+    try:
+        supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Supabase client: {e}")
+else:
+    logger.warning("Supabase credentials not found. Image upload will be disabled.")
 
 
 def _sanitize_filename(name: str) -> str:
@@ -35,6 +43,10 @@ def upload_image_to_supabase(file_obj, folder="profiles"):
     safe_name = _sanitize_filename(original_name)
     unique_prefix = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
     file_path = f"{folder}/{unique_prefix}_{safe_name}"
+
+    if not supabase:
+        logger.warning("Supabase client not initialized. Skipping upload.")
+        return None
 
     try:
         # Ensure file pointer is at start
@@ -97,6 +109,10 @@ def delete_image_from_supabase(image_url):
         True if successful, False otherwise
     """
     try:
+        if not supabase:
+            logger.warning("Supabase client not initialized. Skipping deletion.")
+            return False
+
         # Remove query parameters
         clean_url = image_url.split("?")[0]
 

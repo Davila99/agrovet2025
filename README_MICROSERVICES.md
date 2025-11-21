@@ -111,6 +111,19 @@ python manage.py migrate
 python manage.py runserver 0.0.0.0:8001
 ```
 
+### 🔗 URLs de Servicios
+
+| Servicio | URL Base | Admin / Docs | Puerto |
+|----------|----------|--------------|--------|
+| **API Gateway (Traefik)** | `http://localhost` | [Dashboard](http://localhost:8080) | 80 / 8080 |
+| **Auth Service** | `http://localhost:8002` | [Admin](http://localhost:8002/admin/) | 8002 |
+| **Media Service** | `http://localhost:8001` | [Admin](http://localhost:8001/admin/) | 8001 |
+| **Profiles Service** | `http://localhost:8003` | [Admin](http://localhost:8003/admin/) | 8003 |
+| **Marketplace Service** | `http://localhost:8004` | [Admin](http://localhost:8004/admin/) | 8004 |
+| **Foro Service** | `http://localhost:8005` | [Admin](http://localhost:8005/admin/) | 8005 |
+| **Chat Service** | `http://localhost:8006` | [Admin](http://localhost:8006/admin/) | 8006 |
+| **MinIO (Storage)** | `http://localhost:9000` | [Console](http://localhost:9001) | 9000 / 9001 |
+
 ### Testing
 
 ```bash

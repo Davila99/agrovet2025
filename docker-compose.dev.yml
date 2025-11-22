@@ -183,7 +183,7 @@ services:
       context: ./services/auth-service
       dockerfile: Dockerfile
     container_name: auth-service
-    command: python manage.py runserver 0.0.0.0:8002
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8002"
     volumes:
       - ./services/auth-service:/app
       - ./common:/app/common
@@ -223,7 +223,7 @@ services:
       context: ./services/media-service
       dockerfile: Dockerfile
     container_name: media-service
-    command: python manage.py runserver 0.0.0.0:8001
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8001"
     volumes:
       - ./services/media-service:/app
       - ./common:/app/common
@@ -260,7 +260,7 @@ services:
       context: ./services/profiles-service
       dockerfile: Dockerfile
     container_name: profiles-service
-    command: python manage.py runserver 0.0.0.0:8003
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8003"
     volumes:
       - ./services/profiles-service:/app
       - ./common:/app/common
@@ -301,7 +301,7 @@ services:
       context: ./services/marketplace-service
       dockerfile: Dockerfile
     container_name: marketplace-service
-    command: python manage.py runserver 0.0.0.0:8004
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8004"
     volumes:
       - ./services/marketplace-service:/app
       - ./common:/app/common
@@ -339,7 +339,7 @@ services:
       context: ./services/foro-service
       dockerfile: Dockerfile
     container_name: foro-service
-    command: python manage.py runserver 0.0.0.0:8005
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8005"
     volumes:
       - ./services/foro-service:/app
       - ./common:/app/common
@@ -380,7 +380,7 @@ services:
       context: ./services/chat-service
       dockerfile: Dockerfile
     container_name: chat-service
-    command: daphne -b 0.0.0.0 -p 8006 chat_service.asgi:application
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && daphne -b 0.0.0.0 -p 8006 chat_service.asgi:application"
     volumes:
       - ./services/chat-service:/app
       - ./common:/app/common

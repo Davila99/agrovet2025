@@ -38,70 +38,13 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filtrar por usuario autenticado."""
-        user_id = self.kwargs.get('pk')
-
-        # Verificar permisos
-        try:
-            auth_user_id = getattr(self.request.user, 'id', None)
-            if not (self.request.user.is_staff or auth_user_id == int(user_id)):
-                raise PermissionDenied('No tiene permiso para acceder a este recurso.')
-
-            # Verificar que el usuario existe en Auth Service
-            auth_client = get_auth_client()
-            # Pass through Authorization token so Auth Service can authenticate the request
-            raw = self.request.META.get('HTTP_AUTHORIZATION', '')
-            token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
-            user = auth_client.get_user(int(user_id), token=token)
-            if not user:
-                from rest_framework.exceptions import NotFound
-                raise NotFound('Usuario no encontrado en Auth Service.')
-
-            profile, created = SpecialistProfile.objects.get_or_create(user_id=int(user_id))
-            return profile
-        except PermissionDenied:
-            raise
-        except Exception as e:
-            # Log full traceback for debugging and return a clear API error instead of HTML 500
-            logger = logging.getLogger('profiles.views')
-            logger.error(f"get_object error for user_id={user_id}: {e}")
-            logger.error(traceback.format_exc())
-            from rest_framework.exceptions import APIException
-            raise APIException('Error interno al procesar la solicitud. Revisa logs del servicio.')
-
-        # Verificar que no tenga otro tipo de perfil
-        has_spec = SpecialistProfile.objects.filter(user_id=user_id).exists()
-        has_bus = BusinessmanProfile.objects.filter(user_id=user_id).exists()
-        has_cons = ConsumerProfile.objects.filter(user_id=user_id).exists()
-
-        if self.serializer_class == SpecialistProfileSerializer and (has_bus or has_cons):
-            raise serializers.ValidationError(
-                "El usuario ya tiene otro tipo de perfil. Sólo se permite un rol por usuario."
-            )
-        if self.serializer_class == BusinessmanProfileSerializer and (has_spec or has_cons):
-            raise serializers.ValidationError(
-                "El usuario ya tiene otro tipo de perfil. Sólo se permite un rol por usuario."
-            )
-        if self.serializer_class == ConsumerProfileSerializer and (has_spec or has_bus):
-            raise serializers.ValidationError(
-                "El usuario ya tiene otro tipo de perfil. Sólo se permite un rol por usuario."
-            )
-
-        # Guardar perfil
-        instance = serializer.save(user_id=user_id)
-
-        # Publicar evento
-        try:
-            producer = get_producer()
-            producer.publish('profiles.events', 'profile.created', {
-                'profile_id': instance.id,
-                'user_id': user_id,
-                'profile_type': self._get_profile_type(),
-            })
-        except Exception as e:
-            logger.error(f"Failed to publish profile.created event: {e}")
-
-        return instance
+        """Retornar queryset base según el tipo de perfil."""
+        if self.serializer_class == SpecialistProfileSerializer:
+            return SpecialistProfile.objects.all()
+        elif self.serializer_class == BusinessmanProfileSerializer:
+            return BusinessmanProfile.objects.all()
+        else:
+            return ConsumerProfile.objects.all()
 
     def _get_profile_type(self):
         """Obtener tipo de perfil."""
@@ -111,6 +54,31 @@ class UserProfileViewSet(viewsets.ModelViewSet):
             return 'businessman'
         else:
             return 'consumer'
+
+    def perform_create(self, serializer):
+        """Guardar el perfil con el user_id del usuario autenticado."""
+        # El user_id debe venir en los datos validados o del request
+        user_id = serializer.validated_data.get('user_id')
+        if not user_id:
+            # Si no viene en los datos, intentar obtenerlo del usuario autenticado
+            user_id = getattr(self.request.user, 'id', None)
+        if user_id:
+            instance = serializer.save(user_id=user_id)
+        else:
+            instance = serializer.save()
+        
+        # Publicar evento
+        try:
+            producer = get_producer()
+            producer.publish('profiles.events', 'profile.created', {
+                'profile_id': instance.id,
+                'user_id': instance.user_id,
+                'profile_type': self._get_profile_type(),
+            })
+        except Exception as e:
+            logger.error(f"Failed to publish profile.created event: {e}")
+        
+        return instance
 
 
 class SpecialistProfileViewSet(UserProfileViewSet):
@@ -129,23 +97,99 @@ class SpecialistProfileViewSet(UserProfileViewSet):
         """Obtener el SpecialistProfile para el usuario indicado en la URL."""
         user_id = self.kwargs.get('pk')
         
+        try:
+            user_id_int = int(user_id)
+        except (ValueError, TypeError):
+            from rest_framework.exceptions import NotFound
+            raise NotFound('ID de usuario inválido.')
+        
         # Verificar permisos
         auth_user_id = getattr(self.request.user, 'id', None)
-        if not (self.request.user.is_staff or auth_user_id == int(user_id)):
+        if not (self.request.user.is_staff or auth_user_id == user_id_int):
             raise PermissionDenied('No tiene permiso para acceder a este recurso.')
 
         # Verificar que el usuario existe en Auth Service
-        auth_client = get_auth_client()
-        # Pass through Authorization token so Auth Service can authorize the request
-        raw = self.request.META.get('HTTP_AUTHORIZATION', '')
-        token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
-        user = auth_client.get_user(int(user_id), token=token)
-        if not user:
-            from rest_framework.exceptions import NotFound
-            raise NotFound('Usuario no encontrado en Auth Service.')
+        try:
+            auth_client = get_auth_client()
+            # Pass through Authorization token so Auth Service can authorize the request
+            raw = self.request.META.get('HTTP_AUTHORIZATION', '')
+            token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+            user = auth_client.get_user(user_id_int, token=token)
+            if not user:
+                from rest_framework.exceptions import NotFound
+                raise NotFound('Usuario no encontrado en Auth Service.')
+        except Exception as e:
+            logger.error(f"Error verificando usuario en Auth Service: {e}")
+            logger.error(traceback.format_exc())
+            from rest_framework.exceptions import APIException
+            raise APIException('Error al verificar usuario. Revisa logs del servicio.')
 
-        profile, created = SpecialistProfile.objects.get_or_create(user_id=int(user_id))
+        profile, created = SpecialistProfile.objects.get_or_create(user_id=user_id_int)
         return profile
+
+    def update(self, request, *args, **kwargs):
+        """Actualizar perfil (PUT/PATCH)."""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        logger.info(f"Updating specialist profile ID={instance.id}, user_id={instance.user_id}")
+        logger.debug(f"Request data: {request.data}")
+        
+        # Crear copia mutable de los datos, filtrando campos read_only
+        # DRF ignora automáticamente campos read_only, pero es mejor ser explícito
+        data = {}
+        read_only_fields = ['id', 'user_id', 'user_display', 'work_images', 'work_images_full', 
+                           'puntuations', 'point']
+        
+        # Copiar solo los campos que no son read_only
+        for key, value in request.data.items():
+            if key not in read_only_fields:
+                data[key] = value
+        
+        logger.debug(f"Filtered data: {data}")
+        
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        
+        logger.info(f"Profile updated successfully. ID={updated_instance.id}, profession={updated_instance.profession}, about_us={updated_instance.about_us[:50] if updated_instance.about_us else None}")
+        
+        # Refrescar la instancia desde la base de datos para asegurar que tenemos los datos más recientes
+        updated_instance.refresh_from_db()
+        
+        # Publicar evento
+        try:
+            producer = get_producer()
+            producer.publish('profiles.events', 'profile.updated', {
+                'profile_id': updated_instance.id,
+                'user_id': updated_instance.user_id,
+                'profile_type': 'specialist',
+            })
+        except Exception as e:
+            logger.error(f"Failed to publish profile.updated event: {e}")
+        
+        # Serializar nuevamente con los datos actualizados
+        response_serializer = self.get_serializer(updated_instance)
+        return Response(response_serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Actualizar perfil parcialmente (PATCH)."""
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        """Listar todos los especialistas."""
+        queryset = SpecialistProfile.objects.all()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Obtener un especialista específico."""
+        instance = self.get_object()
+        logger.info(f"Retrieving specialist profile ID={instance.id}, user_id={instance.user_id}, profession={instance.profession}")
+        serializer = self.get_serializer(instance)
+        logger.debug(f"Serialized data: {serializer.data}")
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get', 'patch'], url_path=r'by-user/(?P<user_id>[^/.]+)')
     def by_user(self, request, user_id=None):

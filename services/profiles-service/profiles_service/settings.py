@@ -4,6 +4,7 @@ Django settings for profiles-service microservice.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Load environment variables
 load_dotenv()
@@ -103,6 +104,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'profiles_service.authentication.RemoteAuthServiceAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
@@ -119,6 +121,9 @@ CORS_ALLOWED_ORIGINS = [
     "https://agrovets.vercel.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+]
 
 # External Services
 AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:8002')

@@ -63,44 +63,17 @@ class AuthServiceClient:
             User data if token is valid, None otherwise
         """
         url = f"{self.base_url}/api/auth/users/me/"
-        # If token is empty or falsy, avoid sending empty Authorization header
-        if not token:
-            logger.debug("verify_token called with empty token; returning None without remote call")
-            return None
-
-        # Mask token for logs to avoid leaking full secret
-        def _mask(t: str) -> str:
-            if not t:
-                return ''
-            if len(t) <= 10:
-                return t[:3] + '...'
-            return f"{t[:6]}...{t[-4:]}"
-
         # Try Token first, then Bearer
         for auth_type in ['Token', 'Bearer']:
             headers = {'Authorization': f'{auth_type} {token}'}
             try:
-                logger.debug(f"verify_token: calling {url} with {auth_type} header token={_mask(token)}")
                 response = requests.get(url, headers=headers, timeout=self.timeout)
-                logger.debug(f"verify_token: response status={response.status_code} for {auth_type}")
-                # If the response is not OK, log body at warning level to help debugging
-                if response.status_code != 200:
-                    try:
-                        body_text = response.text
-                        logger.warning(f"verify_token: non-200 response from Auth Service ({auth_type}) status={response.status_code} body={body_text}")
-                    except Exception:
-                        logger.warning(f"verify_token: non-200 response from Auth Service ({auth_type}) status={response.status_code} (failed to read body)")
-                    # continue trying other auth type or return None
-                    continue
-                try:
+                if response.status_code == 200:
                     return response.json()
-                except Exception as e:
-                    logger.debug(f"verify_token: failed parsing JSON response: {e}")
-                    return None
             except Exception as e:
                 logger.debug(f"Failed to verify token with {auth_type}: {e}")
                 continue
-
+        
         return None
 
 

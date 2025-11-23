@@ -435,6 +435,36 @@ services:
       timeout: 20s
       retries: 3
 
+  # Frontend Development Server
+  frontend:
+    build:
+      context: ./frontend/agrovet
+      dockerfile: Dockerfile
+    container_name: agrovet-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/agrovet:/app
+      - /app/node_modules
+    environment:
+      - VITE_AUTH_SERVICE_URL=http://localhost:8002/api
+      - VITE_CHAT_SERVICE_URL=http://localhost:8006
+      - VITE_FORUM_SERVICE_URL=http://localhost:8005/api
+      - VITE_ADDS_SERVICE_URL=http://localhost:8004/api
+      - VITE_MEDIA_SERVICE_URL=http://localhost:8001/api
+      - VITE_GATEWAY_URL=http://localhost:8000/api
+      - VITE_WS_URL=ws://localhost:8006/ws
+    networks:
+      - agrovet-network
+    depends_on:
+      - auth-service
+      - media-service
+      - profiles-service
+      - marketplace-service
+      - foro-service
+      - chat-service
+    restart: unless-stopped
+
 volumes:
   redis-data:
   zookeeper-data:

@@ -1,6 +1,7 @@
 """
 API views for Media service.
 """
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -8,9 +9,7 @@ from rest_framework.response import Response
 from media.models import Media
 from media.api.serializers import MediaSerializer
 from media.utils.supabase_utils import upload_image_to_supabase, delete_image_from_supabase
-import sys
-import os
-import logging
+import sys, os, logging
 
 # Add common to path for events
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
@@ -18,12 +17,9 @@ from common.events.kafka_producer import publish_media_event
 
 logger = logging.getLogger(__name__)
 
-
 class MediaViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing Media objects.
-    Supports file upload to Supabase Storage.
-    """
+    authentication_classes = []  # Allow unauthenticated access
+    permission_classes = []      # Public endpoint
     queryset = Media.objects.all().order_by('-created_at')
     serializer_class = MediaSerializer
     parser_classes = (MultiPartParser, FormParser)
@@ -74,7 +70,6 @@ class MediaViewSet(viewsets.ModelViewSet):
                 logger.error(f"Failed to publish media.created event: {e}")
 
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
         except Exception as exc:
             logger.exception('Unexpected exception in MediaViewSet.create')
             return Response(
@@ -86,7 +81,7 @@ class MediaViewSet(viewsets.ModelViewSet):
         """Update a Media object, optionally replacing the file."""
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        
+
         # Get new file if provided
         image = request.FILES.get('image')
         if not image and getattr(request, 'FILES', None):
@@ -123,7 +118,7 @@ class MediaViewSet(viewsets.ModelViewSet):
         """Delete a Media object and its file from Supabase."""
         instance = self.get_object()
         media_id = instance.id
-        
+
         # Delete from Supabase
         if instance.url:
             delete_image_from_supabase(instance.url)
@@ -139,4 +134,3 @@ class MediaViewSet(viewsets.ModelViewSet):
             logger.error(f"Failed to publish media.deleted event: {e}")
 
         return Response(status=status.HTTP_204_NO_CONTENT)
-

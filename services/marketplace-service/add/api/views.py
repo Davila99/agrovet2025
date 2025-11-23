@@ -35,11 +35,30 @@ class AddViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Asignar publisher_id del usuario autenticado."""
         # Obtener user_id del token
-        token = self.request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
+        raw = self.request.META.get('HTTP_AUTHORIZATION', '')
+        token = raw.replace('Token ', '').replace('Bearer ', '') if raw else ''
+        # Log header presence and masked token for debugging
+        try:
+            masked = (token[:6] + '...' + token[-4:]) if token and len(token) > 10 else (token[:3] + '...' if token else '')
+        except Exception:
+            masked = ''
+        logger.info(f"perform_create called path={self.request.path} method={self.request.method} Authorization_present={bool(raw)} token_mask={masked}")
+
+        # Si no se provee Authorization, devolver error claro
+        if not token:
+            from rest_framework.exceptions import AuthenticationFailed
+            logger.warning(f"perform_create: missing Authorization header for request to {self.request.path}")
+            raise AuthenticationFailed('Se requiere Authorization header')
+
         auth_client = get_auth_client()
+        try:
+            logger.info(f"perform_create: contacting auth service at {auth_client.base_url}/api/auth/users/me/ to verify token")
+        except Exception:
+            pass
         user = auth_client.verify_token(token)
         if not user:
             from rest_framework.exceptions import AuthenticationFailed
+            logger.warning(f"perform_create: token verification failed for token_mask={masked} path={self.request.path} - token may be invalid or Auth Service rejected it. Check auth-service logs for incoming verification requests.")
             raise AuthenticationFailed('Token inválido')
         
         serializer.save(publisher_id=user.get('id'))
@@ -54,6 +73,7 @@ class AddViewSet(viewsets.ModelViewSet):
             })
         except Exception as e:
             logger.error(f"Failed to publish add.created event: {e}")
+        logger.info(f"Add created id={serializer.instance.id} publisher_id={user.get('id')} title={serializer.instance.title}")
 
     def create(self, request, *args, **kwargs):
         """Override create para logging."""
@@ -69,10 +89,13 @@ class AddViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def my_adds(self, request):
         """Anuncios del usuario autenticado."""
-        token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
+        raw = request.META.get('HTTP_AUTHORIZATION', '')
+        token = raw.replace('Token ', '').replace('Bearer ', '') if raw else ''
+        logger.debug(f"my_adds called Authorization_present={bool(raw)} path={request.path}")
         auth_client = get_auth_client()
         user = auth_client.verify_token(token)
         if not user:
+            logger.info(f"my_adds: token verification failed for path={request.path}")
             return Response({'detail': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
         
         adds = Add.objects.filter(publisher_id=user.get('id'))
@@ -81,10 +104,13 @@ class AddViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def following_adds(self, request):
         """Anuncios de usuarios seguidos."""
-        token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
+        raw = request.META.get('HTTP_AUTHORIZATION', '')
+        token = raw.replace('Token ', '').replace('Bearer ', '') if raw else ''
+        logger.debug(f"following_adds called Authorization_present={bool(raw)} path={request.path}")
         auth_client = get_auth_client()
         user = auth_client.verify_token(token)
         if not user:
+            logger.info(f"following_adds: token verification failed for path={request.path}")
             return Response({'detail': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
         
         user_id = user.get('id')
@@ -131,6 +157,8 @@ class AddViewSet(viewsets.ModelViewSet):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    permission_classes = []  # Public endpoint - no authentication required
+
 
 
 class FollowViewSet(viewsets.ModelViewSet):
@@ -142,10 +170,13 @@ class FollowViewSet(viewsets.ModelViewSet):
         """Crear relación de seguimiento."""
         try:
             with transaction.atomic():
-                token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
+                raw = request.META.get('HTTP_AUTHORIZATION', '')
+                token = raw.replace('Token ', '').replace('Bearer ', '') if raw else ''
+                logger.debug(f"Follow.create called Authorization_present={bool(raw)} path={request.path}")
                 auth_client = get_auth_client()
                 user = auth_client.verify_token(token)
                 if not user:
+                    logger.info(f"Follow.create: token verification failed for path={request.path}")
                     return Response({'detail': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
                 
                 follower_id = user.get('id')
@@ -172,10 +203,13 @@ class FollowViewSet(viewsets.ModelViewSet):
         """Eliminar relación de seguimiento."""
         try:
             follow = self.get_object()
-            token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
+            raw = request.META.get('HTTP_AUTHORIZATION', '')
+            token = raw.replace('Token ', '').replace('Bearer ', '') if raw else ''
+            logger.debug(f"Follow.destroy called Authorization_present={bool(raw)} path={request.path}")
             auth_client = get_auth_client()
             user = auth_client.verify_token(token)
             if not user or follow.follower_id != user.get('id'):
+                logger.info(f"Follow.destroy: permission denied user={user and user.get('id')} follower_id={follow.follower_id} path={request.path}")
                 return Response({'detail': 'No tienes permiso para eliminar este seguimiento.'}, status=403)
             
             follow.delete()

@@ -7,6 +7,9 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 from common.http_clients.auth_client import get_auth_client
 from common.http_clients.media_client import get_media_client
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -44,7 +47,7 @@ class AddSerializer(serializers.ModelSerializer):
             if user:
                 return user.get('full_name') or f"User {obj.publisher_id}"
         except Exception:
-            pass
+            logger.debug(f"get_publisher_name: failed to fetch user {obj.publisher_id}", exc_info=True)
         return f"User {obj.publisher_id}"
 
     def get_main_image(self, obj):

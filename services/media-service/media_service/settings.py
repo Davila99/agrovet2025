@@ -4,6 +4,7 @@ Django settings for media-service microservice.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Load environment variables
 load_dotenv()
@@ -119,6 +120,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://agrovets.vercel.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
+# Ensure Authorization header is accepted for cross-origin requests
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+]
 
 # Supabase Configuration
 SUPABASE_URL = os.getenv('SUPABASE_URL', '')

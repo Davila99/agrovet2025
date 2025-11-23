@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 import sys
 import os
 import logging
+import traceback
 
 from ..models import SpecialistProfile, BusinessmanProfile, ConsumerProfile
 from .serializers import (
@@ -38,25 +39,35 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Filtrar por usuario autenticado."""
-        if self.request.user.is_authenticated:
-            # Obtener user_id del token (asumiendo que el token contiene user_id)
-            # En producción, validar token con Auth Service
-            user_id = getattr(self.request.user, 'id', None)
-            if user_id:
-                return self.queryset.filter(user_id=user_id)
-        return self.queryset.none()
+        user_id = self.kwargs.get('pk')
 
-    def perform_create(self, serializer):
-        """Asignar usuario actual al perfil."""
-        # Verificar que el perfil no existe
-        user_id = getattr(self.request.user, 'id', None)
-        if not user_id:
-            raise serializers.ValidationError("Usuario no autenticado correctamente.")
-        
-        if self.queryset.filter(user_id=user_id).exists():
-            raise serializers.ValidationError(
-                "Este usuario ya tiene un perfil de este tipo. Utilice PUT o PATCH para actualizarlo."
-            )
+        # Verificar permisos
+        try:
+            auth_user_id = getattr(self.request.user, 'id', None)
+            if not (self.request.user.is_staff or auth_user_id == int(user_id)):
+                raise PermissionDenied('No tiene permiso para acceder a este recurso.')
+
+            # Verificar que el usuario existe en Auth Service
+            auth_client = get_auth_client()
+            # Pass through Authorization token so Auth Service can authenticate the request
+            raw = self.request.META.get('HTTP_AUTHORIZATION', '')
+            token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+            user = auth_client.get_user(int(user_id), token=token)
+            if not user:
+                from rest_framework.exceptions import NotFound
+                raise NotFound('Usuario no encontrado en Auth Service.')
+
+            profile, created = SpecialistProfile.objects.get_or_create(user_id=int(user_id))
+            return profile
+        except PermissionDenied:
+            raise
+        except Exception as e:
+            # Log full traceback for debugging and return a clear API error instead of HTML 500
+            logger = logging.getLogger('profiles.views')
+            logger.error(f"get_object error for user_id={user_id}: {e}")
+            logger.error(traceback.format_exc())
+            from rest_framework.exceptions import APIException
+            raise APIException('Error interno al procesar la solicitud. Revisa logs del servicio.')
 
         # Verificar que no tenga otro tipo de perfil
         has_spec = SpecialistProfile.objects.filter(user_id=user_id).exists()
@@ -125,7 +136,10 @@ class SpecialistProfileViewSet(UserProfileViewSet):
 
         # Verificar que el usuario existe en Auth Service
         auth_client = get_auth_client()
-        user = auth_client.get_user(int(user_id))
+        # Pass through Authorization token so Auth Service can authorize the request
+        raw = self.request.META.get('HTTP_AUTHORIZATION', '')
+        token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+        user = auth_client.get_user(int(user_id), token=token)
         if not user:
             from rest_framework.exceptions import NotFound
             raise NotFound('Usuario no encontrado en Auth Service.')

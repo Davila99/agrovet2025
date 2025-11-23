@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 import sys
 import os
 import logging
@@ -312,4 +313,19 @@ def test_token_view(request):
         )
     token, _ = Token.objects.get_or_create(user=user)
     return Response({'token': token.key, 'user': UserSerializer(user).data})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def me_view(request):
+    """Return the authenticated user's data.
+
+    This endpoint is used by other services to verify tokens.
+    """
+    try:
+        data = UserSerializer(request.user).data
+        return Response(data)
+    except Exception as e:
+        logger.error(f"me_view: failed to serialize user: {e}")
+        return Response({'detail': 'Failed to retrieve user'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

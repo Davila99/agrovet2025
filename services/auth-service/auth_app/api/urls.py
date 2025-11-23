@@ -5,12 +5,15 @@ from .views import (
     request_password_reset_by_phone, verify_code_and_reset_password, test_token_view
 )
 
+from .views import me_view
+
 router = DefaultRouter()
 router.register(r'register', RegisterViewSet, basename='register')
 router.register(r'login', LoginViewSet, basename='login')
 router.register(r'users', UserView, basename='user')
 
 urlpatterns = [
+    path('users/me/', me_view, name='users-me'),
     path('', include(router.urls)),
     path('upload-profile-picture/', UploadProfilePictureView.as_view(), name='upload-profile-picture'),
     path('password-reset/request/', request_password_reset_by_phone, name='password-reset-request'),

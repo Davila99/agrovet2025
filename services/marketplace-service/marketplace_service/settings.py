@@ -4,6 +4,7 @@ Django settings for marketplace-service microservice.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Load environment variables
 load_dotenv()
@@ -65,13 +66,9 @@ WSGI_APPLICATION = 'marketplace_service.wsgi.application'
 
 # Database
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'marketplace_db'),
-        'USER': os.getenv('DB_USER', 'agrovet'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'agrovet_dev'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
@@ -125,6 +122,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://agrovets.vercel.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
+# Ensure Authorization header is accepted in cross-origin requests
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+]
 
 # External Services
 AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:8002')
@@ -133,12 +134,9 @@ MEDIA_SERVICE_URL = os.getenv('MEDIA_SERVICE_URL', 'http://localhost:8001')
 # Redis Configuration
 REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
 CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
     }
 }
 

@@ -17,7 +17,13 @@ class BaseProfileSerializer(serializers.ModelSerializer):
         try:
             from common.http_clients.auth_client import get_auth_client
             auth_client = get_auth_client()
-            user = auth_client.get_user(obj.user_id)
+            # If possible, reuse the request's Authorization header to help Auth Service authenticate
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            token = None
+            if request is not None:
+                raw = getattr(request, 'META', {}).get('HTTP_AUTHORIZATION', '')
+                token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+            user = auth_client.get_user(obj.user_id, token=token)
             if user:
                 return user.get('full_name') or user.get('phone_number')
         except Exception:

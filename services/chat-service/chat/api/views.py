@@ -154,15 +154,7 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Crear mensaje con sender y receipts."""
-        user = get_user_from_token(self.request)
-        user_id = user.get('id')
-        
-        # Obtener media_id si se proporciona media_url
-        media_id = serializer.validated_data.get('media_id')
-        media_url_from_client = self.request.data.get('media_url') or self.request.data.get('mediaUrl')
-        
-        if media_url_from_client and not media_id:
-            # Crear media en Media Service
+
             try:
                 import requests
                 media_service_url = os.getenv('MEDIA_SERVICE_URL', 'http://localhost:8001')

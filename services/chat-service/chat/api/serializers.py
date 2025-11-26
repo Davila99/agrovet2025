@@ -21,21 +21,26 @@ class SenderSerializer(serializers.Serializer):
 class ChatMessageSerializer(serializers.ModelSerializer):
     sender = serializers.SerializerMethodField()
     media_url = serializers.SerializerMethodField()
+    media = serializers.SerializerMethodField()
     receipts = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatMessage
         fields = [
-            'id', 'room', 'sender', 'content', 'media_id', 'media_url',
+            'id', 'room', 'sender', 'content', 'media_id', 'media_url', 'media',
             'timestamp', 'receipts', 'delivered', 'delivered_at', 'read', 'read_at'
         ]
         read_only_fields = ['id', 'sender', 'timestamp']
 
     def get_sender(self, obj):
         """Obtener información del sender desde Auth Service."""
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        token = None
+        if request:
+            token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
         try:
             auth_client = get_auth_client()
-            user = auth_client.get_user(obj.sender_id)
+            user = auth_client.get_user(obj.sender_id, token=token)
             if user:
                 return {
                     'id': user.get('id'),
@@ -56,6 +61,24 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             media_client = get_media_client()
             media = media_client.get_media(obj.media_id)
             return media.get('url') if media else None
+        except Exception:
+            return None
+
+    def get_media(self, obj):
+        """Obtener objeto media completo desde Media Service (incluye description para spectrum)."""
+        if not obj.media_id:
+            return None
+        try:
+            media_client = get_media_client()
+            media = media_client.get_media(obj.media_id)
+            if media:
+                return {
+                    'id': media.get('id'),
+                    'url': media.get('url'),
+                    'description': media.get('description'),
+                    'name': media.get('name'),
+                }
+            return None
         except Exception:
             return None
 
@@ -92,11 +115,15 @@ class ChatRoomSerializer(serializers.ModelSerializer):
         """Obtener información de participantes desde Auth Service."""
         if not obj.participants_ids:
             return []
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        token = None
+        if request:
+            token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
         try:
             auth_client = get_auth_client()
             participants = []
             for user_id in obj.participants_ids:
-                user = auth_client.get_user(user_id)
+                user = auth_client.get_user(user_id, token=token)
                 if user:
                     participants.append({
                         'id': user.get('id'),
@@ -117,12 +144,15 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             return []
 
     def get_last_message(self, obj):
-        """Obtener último mensaje."""
+        """Obtener último mensaje completo."""
         try:
             msg = obj.messages.order_by('-timestamp').first()
-            return msg.content if msg else ''
+            if msg:
+                serializer = ChatMessageSerializer(msg, context=self.context)
+                return serializer.data
+            return None
         except Exception:
-            return ''
+            return None
 
     def create(self, validated_data):
         """Crear sala, usando get_or_create_private_chat si es privada."""

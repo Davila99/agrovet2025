@@ -446,6 +446,7 @@ services:
     volumes:
       - ./frontend/agrovet:/app
       - /app/node_modules
+      - /app/dist
     environment:
       - VITE_AUTH_SERVICE_URL=http://localhost:8002/api
       - VITE_CHAT_SERVICE_URL=http://localhost:8006
@@ -454,6 +455,8 @@ services:
       - VITE_MEDIA_SERVICE_URL=http://localhost:8001/api
       - VITE_GATEWAY_URL=http://localhost:8000/api
       - VITE_WS_URL=ws://localhost:8006/ws
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
     networks:
       - agrovet-network
     depends_on:
@@ -464,6 +467,8 @@ services:
       - foro-service
       - chat-service
     restart: unless-stopped
+    # Habilitar polling para detectar cambios de archivos en Windows/Mac
+    command: sh -c "npm run dev -- --host 0.0.0.0"
 
 volumes:
   redis-data:

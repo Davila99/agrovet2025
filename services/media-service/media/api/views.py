@@ -27,8 +27,8 @@ class MediaViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Create a new Media object with optional file upload."""
         try:
-            # Get uploaded file
-            image = request.FILES.get('image')
+            # Get uploaded file - support both 'image' and 'audio' fields
+            image = request.FILES.get('image') or request.FILES.get('audio')
             if not image and getattr(request, 'FILES', None):
                 try:
                     image = next(iter(request.FILES.values()))
@@ -46,7 +46,9 @@ class MediaViewSet(viewsets.ModelViewSet):
 
             # Upload to Supabase if file provided
             if image:
-                url = upload_image_to_supabase(image, folder="media")
+                # Determine folder from request or default to 'media'
+                folder = request.data.get('folder', 'media')
+                url = upload_image_to_supabase(image, folder=folder)
                 if url:
                     data['url'] = url
                     logger.info(f"File uploaded to Supabase: {url}")

@@ -4,6 +4,7 @@ API views for Chat service.
 from rest_framework import viewsets, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import get_user_model
 import logging
 from rest_framework.decorators import action
@@ -123,6 +124,7 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
     queryset = ChatMessage.objects.all().order_by('timestamp')
     serializer_class = ChatMessageSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Soporte para archivos
 
     def create(self, request, *args, **kwargs):
         """Crear mensaje."""
@@ -154,24 +156,35 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Crear mensaje con sender y receipts."""
-
+        user = get_user_from_token(self.request)
+        if not user:
+            raise serializers.ValidationError({'detail': 'No autenticado'})
+        
+        user_id = user.get('id')
+        if not user_id:
+            raise serializers.ValidationError({'detail': 'ID de usuario no encontrado'})
+        
+        media_id = None
+        
+        # Manejar subida de archivo si existe
+        image_file = self.request.FILES.get('image') or self.request.FILES.get('file')
+        if image_file:
             try:
-                import requests
-                media_service_url = os.getenv('MEDIA_SERVICE_URL', 'http://localhost:8001')
-                response = requests.post(
-                    f"{media_service_url}/api/media/",
-                    json={
-                        'url': media_url_from_client,
-                        'name': self.request.data.get('media_name'),
-                        'description': self.request.data.get('description'),
-                    },
-                    timeout=10
-                )
-                if response.status_code == 201:
-                    media_data = response.json()
-                    media_id = media_data.get('id')
+                from chat.utils.media_uploader import upload_file_to_media_service
+                media_result = upload_file_to_media_service(image_file, folder="chat")
+                if media_result and media_result.get('id'):
+                    media_id = media_result.get('id')
+                    logger.info(f"File uploaded to Media Service, media_id={media_id}")
+                else:
+                    logger.warning("File upload returned no media_id")
             except Exception as e:
-                logger.error(f"Failed to create media in Media Service: {e}")
+                logger.error(f"Failed to upload file to Media Service: {e}")
+        # También soportar media_id directo desde el request
+        elif self.request.data.get('media_id'):
+            try:
+                media_id = int(self.request.data.get('media_id'))
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid media_id: {self.request.data.get('media_id')}")
 
         # Crear mensaje
         saved = serializer.save(sender_id=user_id, media_id=media_id)

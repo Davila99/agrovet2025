@@ -2,10 +2,13 @@ from rest_framework import serializers
 from profiles.models import SpecialistProfile, BusinessmanProfile, ConsumerProfile
 import sys
 import os
+import logging
 
 # Add common to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 from common.http_clients.media_client import get_media_client
+
+logger = logging.getLogger(__name__)
 
 
 class BaseProfileSerializer(serializers.ModelSerializer):
@@ -67,11 +70,35 @@ class SpecialistProfileSerializer(BaseProfileSerializer):
     def get_work_images_full(self, instance):
         """Obtener objetos completos de media desde Media Service."""
         if not instance.work_images_ids:
+            logger.debug(f"get_work_images_full: No work_images_ids for specialist {instance.id}")
             return []
         try:
             media_client = get_media_client()
-            return media_client.get_multiple_media(instance.work_images_ids)
-        except Exception:
+            media_list = media_client.get_multiple_media(instance.work_images_ids)
+            logger.info(f"get_work_images_full: Retrieved {len(media_list)} media items for specialist {instance.id}, IDs: {instance.work_images_ids}")
+            # Asegurar que cada item tenga los campos necesarios y normalizar
+            normalized_list = []
+            for media in media_list:
+                if not media:
+                    continue
+                # Normalizar el objeto de media para asegurar que tenga todos los campos necesarios
+                normalized_media = {
+                    'id': media.get('id'),
+                    'name': media.get('name') or '',
+                    'description': media.get('description') or '',
+                    'url': media.get('url') or None,
+                    'created_at': media.get('created_at') or None,
+                    'price': media.get('price') or None,
+                }
+                # Solo agregar si tiene ID y URL válidos
+                if normalized_media.get('id') and normalized_media.get('url'):
+                    normalized_list.append(normalized_media)
+                else:
+                    logger.warning(f"get_work_images_full: Media {media.get('id')} missing required fields (id: {normalized_media.get('id')}, url: {normalized_media.get('url')})")
+            logger.info(f"get_work_images_full: Returning {len(normalized_list)} normalized media items")
+            return normalized_list
+        except Exception as e:
+            logger.error(f"get_work_images_full: Error retrieving media for specialist {instance.id}: {e}", exc_info=True)
             return []
 
 

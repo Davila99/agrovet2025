@@ -3,107 +3,233 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Chat Test Client (simple)</title>
+    <title>AgroVet Chat</title>
     <link rel="stylesheet" href="/static/chat/demo.css" />
     <style>
       :root{
         --bg:#f4f6fa; --card:#ffffff; --muted:#6b7280; --accent:#2563eb; --accent-2:#0ea5a9;
         --me-bg:linear-gradient(135deg,var(--accent),#7c3aed); --other-bg:#eef2ff;
+        --success:#10b981; --danger:#ef4444; --warning:#f59e0b;
       }
-      body{font-family:Inter,ui-sans-serif,system-ui,Arial,Helvetica,sans-serif;background:var(--bg);padding:24px}
-      .container{max-width:900px;margin:0 auto}
+      *{box-sizing:border-box}
+      body{font-family:Inter,ui-sans-serif,system-ui,Arial,Helvetica,sans-serif;background:var(--bg);padding:24px;margin:0}
+      .container{max-width:1200px;margin:0 auto}
       .panel{background:var(--card);border-radius:12px;box-shadow:0 6px 24px rgba(12,15,20,0.06);overflow:hidden}
-      header.app-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #f0f3f7}
+      header.app-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #f0f3f7;background:linear-gradient(135deg,#ffffff,#f8fafc)}
       .brand{display:flex;gap:12px;align-items:center}
-      .logo{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
-      .title{font-size:16px;font-weight:600}
+      .logo{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px}
+      .title{font-size:16px;font-weight:600;color:#111827}
       #user-name{font-weight:600;color:#111827}
-      .cols{display:grid;grid-template-columns:320px 1fr}
-      .sidebar{border-right:1px solid #f0f3f7;padding:16px}
+      .cols{display:grid;grid-template-columns:360px 1fr;min-height:600px}
+      .sidebar{border-right:1px solid #f0f3f7;padding:16px;overflow-y:auto;background:#fafbfc}
       .box{background:transparent;padding:0;margin:0}
-      .row{display:flex;gap:8px;align-items:center}
-      input[type=text], input[type=password]{padding:10px;border:1px solid #e6e9ef;border-radius:8px}
-      button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:white;cursor:pointer}
+      .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      input[type=text], input[type=password], input[type=file]{padding:10px;border:1px solid #e6e9ef;border-radius:8px;font-size:14px;width:100%}
+      button{padding:8px 16px;border-radius:8px;border:0;background:var(--accent);color:white;cursor:pointer;font-size:14px;font-weight:500;transition:all 0.2s}
+      button:hover{opacity:0.9;transform:translateY(-1px)}
       button.secondary{background:transparent;color:var(--accent);border:1px solid #e6e9ef}
+      button.secondary:hover{background:#f0f7ff}
+      button.success{background:var(--success)}
+      button.danger{background:var(--danger)}
+      button:disabled{opacity:0.5;cursor:not-allowed}
+
+      /* Specialists list */
+      .specialists-section{margin-top:16px}
+      .specialists-list{max-height:300px;overflow-y:auto;margin-top:8px;border:1px solid #e6e9ef;border-radius:8px;background:white}
+      .specialist-item{padding:12px;border-bottom:1px solid #f0f3f7;cursor:pointer;transition:background 0.2s;display:flex;align-items:center;gap:10px}
+      .specialist-item:hover{background:#f8fafc}
+      .specialist-item:last-child{border-bottom:none}
+      .specialist-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:white;font-weight:600;flex-shrink:0}
+      .specialist-info{flex:1;min-width:0}
+      .specialist-name{font-weight:600;color:#111827;font-size:14px}
+      .specialist-profession{font-size:12px;color:var(--muted);margin-top:2px}
+      .specialist-select-btn{padding:4px 8px;font-size:12px;background:var(--success);border-radius:6px}
 
       /* Chat area */
-      .chat-main{display:flex;flex-direction:column;height:540px}
+      .chat-main{display:flex;flex-direction:column;height:600px;background:#ffffff}
       #messages{flex:1;overflow:auto;padding:20px;background:linear-gradient(180deg,#fbfdff,#f7f9fc)}
-      .msg{display:flex;margin-bottom:12px;align-items:flex-end}
-      .msg .bubble{max-width:72%;padding:10px 14px;border-radius:14px;line-height:1.3;font-size:14px}
+      .msg{display:flex;margin-bottom:16px;align-items:flex-end;gap:8px}
+      .msg-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:12px;flex-shrink:0}
+      .msg .bubble{max-width:72%;padding:12px 16px;border-radius:16px;line-height:1.4;font-size:14px;word-wrap:break-word}
       .msg.me{justify-content:flex-end}
-      .msg.me .bubble{background:var(--me-bg);color:white;border-bottom-right-radius:6px;border-bottom-left-radius:14px}
+      .msg.me .msg-avatar{order:2}
+      .msg.me .bubble{background:var(--me-bg);color:white;border-bottom-right-radius:4px;border-bottom-left-radius:16px}
       .msg.other{justify-content:flex-start}
-      .msg.other .bubble{background:var(--other-bg);color:#0f172a;border-bottom-left-radius:6px;border-bottom-right-radius:14px}
-      .meta{font-size:12px;color:var(--muted);margin-left:8px}
-      .composer{display:flex;padding:14px;border-top:1px solid #f0f3f7;gap:8px}
-      .composer input{flex:1;padding:10px;border-radius:10px;border:1px solid #e6e9ef}
+      .msg.other .bubble{background:var(--other-bg);color:#0f172a;border-bottom-left-radius:4px;border-bottom-right-radius:16px}
+      .msg-image{max-width:100%;border-radius:8px;margin-top:8px;cursor:pointer}
+      .meta{font-size:11px;color:var(--muted);margin-top:4px;opacity:0.8}
+      .composer{display:flex;padding:16px;border-top:1px solid #f0f3f7;gap:8px;background:white;align-items:flex-end}
+      .composer input{flex:1;padding:12px;border-radius:12px;border:1px solid #e6e9ef;font-size:14px}
+      .composer input:focus{outline:none;border-color:var(--accent)}
+      .file-input-wrapper{position:relative;display:inline-block}
+      .file-input-wrapper input[type=file]{position:absolute;opacity:0;width:0;height:0}
+      .file-input-label{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:#f0f7ff;color:var(--accent);cursor:pointer;transition:all 0.2s}
+      .file-input-label:hover{background:#e0efff}
+      .file-preview{display:flex;gap:8px;padding:8px;background:#f8fafc;border-radius:8px;margin-bottom:8px;align-items:center}
+      .file-preview img{width:60px;height:60px;object-fit:cover;border-radius:6px}
+      .file-preview-info{flex:1}
+      .file-preview-name{font-size:12px;color:#111827;font-weight:500}
+      .file-preview-size{font-size:11px;color:var(--muted)}
+      .file-preview-remove{background:var(--danger);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;font-size:12px}
+
+      /* Rooms list */
+      .rooms-section{margin-top:16px}
+      .rooms-list{max-height:200px;overflow-y:auto;margin-top:8px;border:1px solid #e6e9ef;border-radius:8px;background:white}
+      .room-item{padding:10px;border-bottom:1px solid #f0f3f7;cursor:pointer;transition:background 0.2s}
+      .room-item:hover{background:#f8fafc}
+      .room-item.active{background:#e0efff;border-left:3px solid var(--accent)}
+      .room-item:last-child{border-bottom:none}
+      .room-name{font-weight:500;font-size:14px;color:#111827}
+      .room-meta{font-size:11px;color:var(--muted);margin-top:4px}
 
       /* small utilities */
       .small{font-size:13px;color:var(--muted)}
-      .system-msg{color:var(--muted);font-size:13px;margin-bottom:8px}
+      .system-msg{color:var(--muted);font-size:13px;margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:6px}
+      .section-title{font-weight:600;color:#111827;margin-bottom:8px;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+      .status-badge{display:inline-block;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:500}
+      .status-badge.online{background:#d1fae5;color:#065f46}
+      .status-badge.offline{background:#fee2e2;color:#991b1b}
+      .status-badge.connecting{background:#fef3c7;color:#92400e}
+      .loading{display:inline-block;width:16px;height:16px;border:2px solid #e6e9ef;border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+      .empty-state-icon{font-size:48px;margin-bottom:12px;opacity:0.5}
     </style>
   </head>
   <body>
     <div class="container">
       <div class="panel">
         <header class="app-header">
-          <div class="brand"><div class="logo">CV</div><div><div class="title">AgroVet Chat — Test</div><div class="small">Real-time chat playground</div></div></div>
+          <div class="brand">
+            <div class="logo">AV</div>
+            <div>
+              <div class="title">AgroVet Chat</div>
+              <div class="small">Chat en tiempo real</div>
+            </div>
+          </div>
           <div id="user-display" style="text-align:right">
-            <div class="small">Logged in as</div>
-            <div id="user-name">Guest</div>
+            <div class="small">Conectado como</div>
+            <div id="user-name">Invitado</div>
             <div id="room-header" style="margin-top:8px;display:flex;align-items:center;justify-content:flex-end;gap:8px">
-              <div id="room-avatar" style="width:36px;height:36px;border-radius:50%;background:#e6eefc;color:#0b1f5a;display:inline-flex;align-items:center;justify-content:center;font-weight:700">?</div>
-              <div style="text-align:right"><div class="small">In room with</div><div id="room-header-name">(no one)</div></div>
+              <div id="room-avatar" class="msg-avatar">?</div>
+              <div style="text-align:right">
+                <div class="small">En sala con</div>
+                <div id="room-header-name">(nadie)</div>
+              </div>
             </div>
           </div>
         </header>
         <div class="cols">
           <aside class="sidebar">
-            <div style="margin-bottom:12px"><strong>Login</strong></div>
-            <div class="row" style="margin-bottom:8px"><input id="login-phone" type="text" placeholder="phone_number" style="flex:1" /><input id="login-pass" type="password" placeholder="password" style="flex:1; margin-left:8px" /></div>
-            <div class="row" style="margin-bottom:12px"><button type="button" id="btn-login">Login</button><button type="button" id="btn-logout" class="secondary">Logout</button></div>
-            <div id="login-status" class="system-msg"></div>
+            <div style="margin-bottom:16px">
+              <div class="section-title">Iniciar Sesión</div>
+              <div class="row" style="margin-bottom:8px">
+                <input id="login-phone" type="text" placeholder="Teléfono" style="flex:1" />
+                <input id="login-pass" type="password" placeholder="Contraseña" style="flex:1; margin-left:8px" />
+              </div>
+              <div class="row" style="margin-bottom:12px">
+                <button type="button" id="btn-login" style="flex:1">Entrar</button>
+                <button type="button" id="btn-logout" class="secondary">Salir</button>
+              </div>
+              <div id="login-status" class="system-msg"></div>
+            </div>
 
-            <hr style="margin:12px 0;border:none;border-top:1px solid #f0f3f7" />
+            <hr style="margin:16px 0;border:none;border-top:1px solid #f0f3f7" />
 
-            <div style="margin-bottom:8px"><strong>Create Room</strong></div>
-            <div class="row" style="margin-bottom:8px"><input id="room-participants" type="text" placeholder="participants ids e.g. 2,3" style="width:100%" /></div>
-            <div class="row" style="margin-bottom:6px"><label><input id="room-private" type="checkbox" /> Private</label></div>
-            <div class="row" style="margin-bottom:6px"><button type="button" id="btn-create-room">Create</button></div>
-            <div id="room-result" class="small"></div>
-            <hr style="margin:12px 0;border:none;border-top:1px solid #f0f3f7" />
-            <div style="margin-bottom:8px"><strong>Connect to Room</strong></div>
-            <div class="row" style="margin-bottom:8px"><input id="room-id" type="text" placeholder="room id (e.g. 11)" style="flex:1" /><button type="button" id="btn-connect" style="margin-left:8px">Connect</button><button type="button" id="btn-disconnect" class="secondary" style="margin-left:8px">Disconnect</button></div>
-            <div style="margin-top:8px"><strong>Other participant:</strong> <span id="room-other-name" class="small">(none)</span></div>
+            <div class="specialists-section">
+              <div class="section-title">
+                <span>Especialistas</span>
+                <button type="button" id="btn-list-specialists" class="secondary" style="padding:4px 8px;font-size:12px">Listar</button>
+              </div>
+              <div id="specialists-list" class="specialists-list" style="display:none">
+                <div class="empty-state" style="padding:20px">
+                  <div class="small">Cargando especialistas...</div>
+                </div>
+              </div>
+            </div>
+
+            <hr style="margin:16px 0;border:none;border-top:1px solid #f0f3f7" />
+
+            <div class="rooms-section">
+              <div class="section-title">
+                <span>Mis Salas</span>
+                <button type="button" id="btn-load-rooms" class="secondary" style="padding:4px 8px;font-size:12px">Cargar</button>
+              </div>
+              <div id="rooms-list" class="rooms-list">
+                <div class="empty-state" style="padding:20px">
+                  <div class="small">Inicia sesión para ver tus salas</div>
+                </div>
+              </div>
+            </div>
+
+            <hr style="margin:16px 0;border:none;border-top:1px solid #f0f3f7" />
+
+            <div style="margin-bottom:8px">
+              <div class="section-title">Crear Sala</div>
+              <div class="row" style="margin-bottom:8px">
+                <input id="room-participants" type="text" placeholder="IDs participantes (ej: 2,3)" style="width:100%" />
+              </div>
+              <div class="row" style="margin-bottom:8px">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input id="room-private" type="checkbox" />
+                  <span class="small">Privada</span>
+                </label>
+              </div>
+              <div class="row" style="margin-bottom:6px">
+                <button type="button" id="btn-create-room" style="width:100%">Crear Sala</button>
+              </div>
+              <div id="room-result" class="small"></div>
+            </div>
+
+            <hr style="margin:16px 0;border:none;border-top:1px solid #f0f3f7" />
+
+            <div style="margin-bottom:8px">
+              <div class="section-title">Conectar a Sala</div>
+              <div class="row" style="margin-bottom:8px">
+                <input id="room-id" type="text" placeholder="ID de sala (ej: 11)" style="flex:1" />
+                <button type="button" id="btn-connect">Conectar</button>
+                <button type="button" id="btn-disconnect" class="secondary">Desconectar</button>
+              </div>
+              <div style="margin-top:8px">
+                <div class="small"><strong>Participante:</strong> <span id="room-other-name">(ninguno)</span></div>
+              </div>
+            </div>
           </aside>
           <main class="chat-main">
             <div id="messages"></div>
+            <div id="file-preview-container" style="display:none"></div>
             <div class="composer">
-              <input id="msg-text" type="text" placeholder="Type a message" />
-              <button type="button" id="btn-send">Send</button>
+              <div class="file-input-wrapper">
+                <label for="file-input" class="file-input-label" title="Subir imagen">📎</label>
+                <input id="file-input" type="file" accept="image/*" />
+              </div>
+              <input id="msg-text" type="text" placeholder="Escribe un mensaje..." />
+              <button type="button" id="btn-send">Enviar</button>
             </div>
-            <div style="padding:10px 16px"><span class="small">WS status: <span id="ws-status">CLOSED</span></span></div>
+            <div style="padding:10px 16px;border-top:1px solid #f0f3f7;background:#fafbfc">
+              <span class="small">Estado WS: <span id="ws-status" class="status-badge offline">CERRADO</span></span>
+            </div>
           </main>
         </div>
       </div>
     </div>
 
-    <div style="color:#666;font-size:13px">This simple client uses API endpoints: <code>/api/auth/login/</code> and <code>/api/chat/rooms/</code>. WS path: <code>/ws/chat/&lt;room&gt;/?token=&lt;key&gt;</code></div>
-
     <script>
     (function(){
-      // Clean, robust client initialization. Attaches listeners after DOM ready
       function qs(id){ return document.getElementById(id); }
-
       function timeNow(){ const dt = new Date(); return dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0'); }
       function safeText(node, text){ if(!node) return; node.textContent = text; }
+      function formatFileSize(bytes){ if(!bytes) return '0 B'; const k=1024; const sizes=['B','KB','MB']; const i=Math.floor(Math.log(bytes)/Math.log(k)); return Math.round(bytes/Math.pow(k,i)*100)/100+' '+sizes[i]; }
+
+      let token = null;
+      let sock = null;
+      let currentRoomId = null;
+      let selectedFile = null;
+      let currentUserId = null;
 
       function initClient(){
-        console.debug('[test-client] initClient');
-        let token = null;
-        let sock = null;
-
+        console.debug('[chat-client] initClient');
+        
         const loginPhone = qs('login-phone');
         const loginPass = qs('login-pass');
         const btnLogin = qs('btn-login');
@@ -124,78 +250,453 @@
         const msgText = qs('msg-text');
         const btnSend = qs('btn-send');
         const userNameEl = qs('user-name');
+        const btnListSpecialists = qs('btn-list-specialists');
+        const specialistsList = qs('specialists-list');
+        const btnLoadRooms = qs('btn-load-rooms');
+        const roomsList = qs('rooms-list');
+        const fileInput = qs('file-input');
+        const filePreviewContainer = qs('file-preview-container');
+
+        function updateWSStatus(status, className){
+          if(!wsStatus) return;
+          wsStatus.textContent = status.toUpperCase();
+          wsStatus.className = 'status-badge ' + (className || 'offline');
+        }
 
         function addMessage(who, text, opts){
           try{
-            if(!messages){ console.log('[test-client] no #messages element:', who, text); return; }
-            const row = document.createElement('div'); row.className = who==='me' ? 'msg me' : 'msg other';
-            const bubble = document.createElement('div'); bubble.className='bubble';
+            if(!messages){ console.log('[chat-client] no #messages element:', who, text); return; }
+            const row = document.createElement('div');
+            row.className = who==='me' ? 'msg me' : 'msg other';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'msg-avatar';
+            const name = (who==='me' ? (userNameEl?.textContent || 'Yo') : who) || 'Usuario';
+            avatar.textContent = name.split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase() || '?';
+            row.appendChild(avatar);
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
             const ts = (opts && opts.ts) ? opts.ts : timeNow();
-            bubble.innerHTML = '<div style="font-size:12px;color:#374151;margin-bottom:6px"><b>'+(who)+'</b></div><div>'+ (text||'') +'</div><div class="meta" style="text-align:right;margin-top:6px">'+ts+'</div>';
+            
+            let content = '';
+            if(opts && opts.imageUrl){
+              content = `<img src="${opts.imageUrl}" alt="Imagen" class="msg-image" onclick="window.open('${opts.imageUrl}', '_blank')" />`;
+            }
+            if(text){
+              content += '<div>' + (text||'') + '</div>';
+            }
+            content += '<div class="meta">' + ts + '</div>';
+            
+            bubble.innerHTML = content;
             if(opts && opts.client_msg_id) row.setAttribute('data-client-msg-id', opts.client_msg_id);
             row.appendChild(bubble);
             messages.appendChild(row);
             messages.scrollTop = messages.scrollHeight;
             return row;
-          }catch(err){ console.error('[test-client] addMessage error', err); }
+          }catch(err){ console.error('[chat-client] addMessage error', err); }
         }
 
-        function wsUrlForRoom(room){ const proto = location.protocol==='https:'?'wss':'ws'; const q = token?('?token='+encodeURIComponent(token)) : ''; return proto+'://'+location.host+'/ws/chat/'+encodeURIComponent(room)+'/'+q; }
+        function wsUrlForRoom(room){
+          const proto = location.protocol==='https:'?'wss':'ws';
+          const q = token?('?token='+encodeURIComponent(token)) : '';
+          return proto+'://'+location.host+'/ws/chat/'+encodeURIComponent(room)+'/'+q;
+        }
 
-        function setRoomHeader(name){ try{ if(roomOtherName) roomOtherName.textContent = name || '(no one)'; if(roomHeaderName) roomHeaderName.textContent = name || '(no one)'; if(roomAvatar) roomAvatar.textContent = (name||'?').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase(); }catch(e){ } }
+        function setRoomHeader(name){
+          try{
+            if(roomOtherName) roomOtherName.textContent = name || '(ninguno)';
+            if(roomHeaderName) roomHeaderName.textContent = name || '(nadie)';
+            if(roomAvatar) roomAvatar.textContent = (name||'?').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase() || '?';
+          }catch(e){}
+        }
 
         function openSocket(room){
-          if(!token){ addMessage('system','login first'); return; }
+          if(!token){ addMessage('system','Inicia sesión primero'); return; }
+          if(sock && sock.readyState === WebSocket.OPEN){
+            sock.close();
+          }
+          currentRoomId = room;
           const url = wsUrlForRoom(room);
-          addMessage('system','connecting to '+url);
-          try{ sock = new WebSocket(url); }catch(e){ addMessage('system','ws ctor failed: '+e.message); return; }
-          if(wsStatus) wsStatus.textContent = 'CONNECTING';
-          sock.onopen = ()=>{ if(wsStatus) wsStatus.textContent='OPEN'; addMessage('system','ws open'); };
-          sock.onmessage = ev=>{
-            try{
-              const d = JSON.parse(ev.data);
-              // correlate optimistic echo
-              if(d.client_msg_id){ const local = messages && messages.querySelector('[data-client-msg-id="'+d.client_msg_id+'"]'); if(local){ local.classList.remove('me'); local.classList.add('other'); const bubble = local.querySelector('.bubble'); if(bubble) bubble.innerHTML = '<div style="font-size:12px;color:#374151;margin-bottom:6px"><b>'+(d.username||'recv')+'</b></div><div>'+(d.message||'')+'</div><div class="meta" style="text-align:right;margin-top:6px">'+(d.timestamp||timeNow())+'</div>'; local.removeAttribute('data-client-msg-id'); messages.scrollTop = messages.scrollHeight; setRoomHeader(d.username||'(no one)'); return; } }
-              // fallback: render server message
-              addMessage(d.username||'recv', d.message||ev.data, { ts: d.timestamp || timeNow() });
-              setRoomHeader(d.username||'(no one)');
-            }catch(e){ addMessage('recv', ev.data); }
-          };
-          sock.onclose = ev=>{ if(wsStatus) wsStatus.textContent='CLOSED'; addMessage('system','ws close: code='+ev.code+' reason='+(ev.reason||'')); sock=null; };
-          sock.onerror = e=>{ addMessage('system','ws error (see server logs)'); console.debug('[test-client] ws error', e); };
+          addMessage('system','Conectando a '+url);
+          try{
+            sock = new WebSocket(url);
+            updateWSStatus('CONECTANDO', 'connecting');
+            sock.onopen = ()=>{
+              updateWSStatus('ABIERTO', 'online');
+              addMessage('system','Conexión establecida');
+            };
+            sock.onmessage = ev=>{
+              try{
+                const d = JSON.parse(ev.data);
+                if(d.client_msg_id){
+                  const local = messages && messages.querySelector('[data-client-msg-id="'+d.client_msg_id+'"]');
+                  if(local){
+                    local.classList.remove('me');
+                    local.classList.add('other');
+                    const bubble = local.querySelector('.bubble');
+                    if(bubble){
+                      let content = '';
+                      if(d.media_url){
+                        content = `<img src="${d.media_url}" alt="Imagen" class="msg-image" onclick="window.open('${d.media_url}', '_blank')" />`;
+                      }
+                      if(d.message || d.content){
+                        content += '<div>'+(d.message||d.content||'')+'</div>';
+                      }
+                      content += '<div class="meta">'+(d.timestamp||timeNow())+'</div>';
+                      bubble.innerHTML = content;
+                    }
+                    local.removeAttribute('data-client-msg-id');
+                    messages.scrollTop = messages.scrollHeight;
+                    setRoomHeader(d.username||'(nadie)');
+                    return;
+                  }
+                }
+                const msgText = d.message || d.content || ev.data;
+                const msgOpts = { ts: d.timestamp || timeNow() };
+                if(d.media_url) msgOpts.imageUrl = d.media_url;
+                addMessage(d.username||'recv', msgText, msgOpts);
+                setRoomHeader(d.username||'(nadie)');
+              }catch(e){
+                addMessage('recv', ev.data);
+              }
+            };
+            sock.onclose = ev=>{
+              updateWSStatus('CERRADO', 'offline');
+              addMessage('system','Conexión cerrada: código='+ev.code+(ev.reason?' razón='+ev.reason:''));
+              sock=null;
+              currentRoomId = null;
+            };
+            sock.onerror = e=>{
+              updateWSStatus('ERROR', 'offline');
+              addMessage('system','Error de conexión (revisa logs del servidor)');
+              console.debug('[chat-client] ws error', e);
+            };
+          }catch(e){
+            addMessage('system','Error al crear conexión: '+e.message);
+            updateWSStatus('ERROR', 'offline');
+          }
         }
 
-        // Attach button handlers (safe guards and debug logs)
+        async function loadSpecialists(){
+          if(!token){ addMessage('system','Inicia sesión primero'); return; }
+          if(!specialistsList) return;
+          
+          specialistsList.style.display = 'block';
+          specialistsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="loading"></div><div class="small" style="margin-top:8px">Cargando especialistas...</div></div>';
+          
+          try{
+            const res = await fetch('/api/profiles/specialists/', {
+              headers: { 'Authorization': 'Token '+token }
+            });
+            if(!res.ok){
+              specialistsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="small" style="color:var(--danger)">Error al cargar especialistas</div></div>';
+              return;
+            }
+            const data = await res.json();
+            if(!data || data.length === 0){
+              specialistsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="small">No hay especialistas disponibles</div></div>';
+              return;
+            }
+            
+            specialistsList.innerHTML = '';
+            data.forEach(spec => {
+              const item = document.createElement('div');
+              item.className = 'specialist-item';
+              const name = spec.user_display || `Especialista ${spec.id}`;
+              const profession = spec.profession || 'Especialista';
+              item.innerHTML = `
+                <div class="specialist-avatar">${name.split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</div>
+                <div class="specialist-info">
+                  <div class="specialist-name">${name}</div>
+                  <div class="specialist-profession">${profession}</div>
+                </div>
+                <button class="specialist-select-btn" onclick="selectSpecialist(${spec.user_id}, '${name.replace(/'/g, "\\'")}')">Seleccionar</button>
+              `;
+              specialistsList.appendChild(item);
+            });
+          }catch(err){
+            console.error('[chat-client] load specialists error', err);
+            specialistsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="small" style="color:var(--danger)">Error al cargar especialistas</div></div>';
+          }
+        }
+
+        window.selectSpecialist = function(userId, name){
+          if(!roomParticipants) return;
+          const current = roomParticipants.value.trim();
+          const ids = current ? current.split(',').map(s=>s.trim()).filter(Boolean) : [];
+          if(!ids.includes(userId.toString())){
+            ids.push(userId.toString());
+            roomParticipants.value = ids.join(',');
+            addMessage('system', `Especialista "${name}" agregado`);
+          }else{
+            addMessage('system', `Especialista "${name}" ya está seleccionado`);
+          }
+        };
+
+        async function loadRooms(){
+          if(!token){ addMessage('system','Inicia sesión primero'); return; }
+          if(!roomsList) return;
+          
+          roomsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="loading"></div><div class="small" style="margin-top:8px">Cargando salas...</div></div>';
+          
+          try{
+            const res = await fetch('/api/chat/rooms/', {
+              headers: { 'Authorization': 'Token '+token }
+            });
+            if(!res.ok){
+              roomsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="small" style="color:var(--danger)">Error al cargar salas</div></div>';
+              return;
+            }
+            const data = await res.json();
+            if(!data || data.length === 0){
+              roomsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="small">No tienes salas</div></div>';
+              return;
+            }
+            
+            roomsList.innerHTML = '';
+            data.forEach(room => {
+              const item = document.createElement('div');
+              item.className = 'room-item';
+              if(room.id == currentRoomId) item.classList.add('active');
+              const name = room.name || `Sala ${room.id}`;
+              const participants = room.participants_count || 0;
+              item.innerHTML = `
+                <div class="room-name">${name}</div>
+                <div class="room-meta">${participants} participante${participants !== 1 ? 's' : ''}</div>
+              `;
+              item.addEventListener('click', () => {
+                if(roomIdInput) roomIdInput.value = room.id;
+                openSocket(room.id);
+              });
+              roomsList.appendChild(item);
+            });
+          }catch(err){
+            console.error('[chat-client] load rooms error', err);
+            roomsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="small" style="color:var(--danger)">Error al cargar salas</div></div>';
+          }
+        }
+
+        function showFilePreview(file){
+          if(!filePreviewContainer) return;
+          selectedFile = file;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            filePreviewContainer.innerHTML = `
+              <div class="file-preview">
+                <img src="${e.target.result}" alt="Preview" />
+                <div class="file-preview-info">
+                  <div class="file-preview-name">${file.name}</div>
+                  <div class="file-preview-size">${formatFileSize(file.size)}</div>
+                </div>
+                <div class="file-preview-remove" onclick="clearFilePreview()">×</div>
+              </div>
+            `;
+            filePreviewContainer.style.display = 'block';
+          };
+          reader.readAsDataURL(file);
+        }
+
+        window.clearFilePreview = function(){
+          selectedFile = null;
+          if(filePreviewContainer) filePreviewContainer.style.display = 'none';
+          if(fileInput) fileInput.value = '';
+        };
+
+        async function uploadFile(file){
+          if(!token) return null;
+          const formData = new FormData();
+          formData.append('image', file);
+          
+          try{
+            const res = await fetch('/api/media/', {
+              method: 'POST',
+              headers: { 'Authorization': 'Token '+token },
+              body: formData
+            });
+            if(!res.ok) return null;
+            const data = await res.json();
+            return data.id || null;
+          }catch(err){
+            console.error('[chat-client] upload file error', err);
+            return null;
+          }
+        }
+
+        // Event handlers
         if(btnLogin) btnLogin.addEventListener('click', async ()=>{
-          console.debug('[test-client] login click');
+          console.debug('[chat-client] login click');
           const phone = (loginPhone && loginPhone.value)||'';
           const password = (loginPass && loginPass.value)||'';
-          if(!phone){ if(loginStatus) loginStatus.textContent='phone_number required'; addMessage('system','phone_number required'); return; }
+          if(!phone){
+            if(loginStatus) loginStatus.textContent='Teléfono requerido';
+            addMessage('system','Teléfono requerido');
+            return;
+          }
           try{
-            const res = await fetch('/api/auth/login/', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phone_number: phone, password }) });
-            const txt = await res.text(); if(!res.ok){ addMessage('system','login failed: '+res.status); return; }
-            const data = JSON.parse(txt); token = (data.token||'').trim(); safeText(loginStatus, token? 'Logged in':'Logged in'); safeText(userNameEl, (data.user && (data.user.full_name || data.user.phone_number))||'Me'); addMessage('system','login OK');
-          }catch(err){ console.error('[test-client] login error', err); addMessage('system','login error'); }
+            const res = await fetch('/api/auth/login/', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ phone_number: phone, password })
+            });
+            const txt = await res.text();
+            if(!res.ok){
+              addMessage('system','Error de inicio de sesión: '+res.status);
+              return;
+            }
+            const data = JSON.parse(txt);
+            token = (data.token||'').trim();
+            currentUserId = data.user?.id;
+            safeText(loginStatus, token ? 'Sesión iniciada' : 'Error');
+            safeText(userNameEl, (data.user && (data.user.full_name || data.user.phone_number))||'Usuario');
+            addMessage('system','Sesión iniciada correctamente');
+            if(token) loadRooms();
+          }catch(err){
+            console.error('[chat-client] login error', err);
+            addMessage('system','Error al iniciar sesión');
+          }
         });
 
-        if(btnLogout) btnLogout.addEventListener('click', ()=>{ console.debug('[test-client] logout click'); token = null; safeText(loginStatus,'Logged out'); addMessage('system','logged out'); safeText(userNameEl,'Guest'); });
+        if(btnLogout) btnLogout.addEventListener('click', ()=>{
+          console.debug('[chat-client] logout click');
+          if(sock){ try{ sock.close(); }catch(e){} }
+          token = null;
+          currentUserId = null;
+          currentRoomId = null;
+          safeText(loginStatus,'Sesión cerrada');
+          addMessage('system','Sesión cerrada');
+          safeText(userNameEl,'Invitado');
+          updateWSStatus('CERRADO', 'offline');
+          if(messages) messages.innerHTML = '';
+          if(roomsList) roomsList.innerHTML = '<div class="empty-state" style="padding:20px"><div class="small">Inicia sesión para ver tus salas</div></div>';
+          if(specialistsList) specialistsList.style.display = 'none';
+        });
+
+        if(btnListSpecialists) btnListSpecialists.addEventListener('click', loadSpecialists);
+
+        if(btnLoadRooms) btnLoadRooms.addEventListener('click', loadRooms);
 
         if(btnCreateRoom) btnCreateRoom.addEventListener('click', async ()=>{
-          console.debug('[test-client] create-room click'); if(!token) return addMessage('system','login first'); const raw = (roomParticipants && roomParticipants.value)||''; const participants = raw? raw.split(',').map(s=>parseInt(s.trim())).filter(Boolean):[]; const payload = { participants, is_private: !!(roomPrivate && roomPrivate.checked) };
-          try{ const res = await fetch('/api/chat/rooms/', { method:'POST', headers:{ 'Content-Type':'application/json','Authorization':'Token '+token }, body: JSON.stringify(payload) }); const txt = await res.text(); if(!res.ok){ addMessage('system','create room failed: '+res.status); return; } const data = JSON.parse(txt); if(roomResult) roomResult.textContent = JSON.stringify(data); addMessage('system','room created: '+(data.id||'(unknown)')); }catch(err){ console.error('[test-client] create room error', err); addMessage('system','create room error'); }
+          console.debug('[chat-client] create-room click');
+          if(!token) return addMessage('system','Inicia sesión primero');
+          const raw = (roomParticipants && roomParticipants.value)||'';
+          const participants = raw ? raw.split(',').map(s=>parseInt(s.trim())).filter(Boolean) : [];
+          if(participants.length === 0){
+            addMessage('system','Selecciona al menos un participante');
+            return;
+          }
+          const payload = { participants, is_private: !!(roomPrivate && roomPrivate.checked) };
+          try{
+            const res = await fetch('/api/chat/rooms/', {
+              method:'POST',
+              headers:{
+                'Content-Type':'application/json',
+                'Authorization':'Token '+token
+              },
+              body: JSON.stringify(payload)
+            });
+            const txt = await res.text();
+            if(!res.ok){
+              addMessage('system','Error al crear sala: '+res.status);
+              return;
+            }
+            const data = JSON.parse(txt);
+            if(roomResult) roomResult.textContent = 'Sala creada: ID '+data.id;
+            addMessage('system','Sala creada: ID '+data.id);
+            if(roomIdInput) roomIdInput.value = data.id;
+            loadRooms();
+          }catch(err){
+            console.error('[chat-client] create room error', err);
+            addMessage('system','Error al crear sala');
+          }
         });
 
-        if(btnConnect) btnConnect.addEventListener('click', ()=>{ console.debug('[test-client] connect click'); const room = (roomIdInput && roomIdInput.value)||'11'; if(!room) return addMessage('system','enter room id'); openSocket(room); });
+        if(btnConnect) btnConnect.addEventListener('click', ()=>{
+          console.debug('[chat-client] connect click');
+          const room = (roomIdInput && roomIdInput.value)||'';
+          if(!room) return addMessage('system','Ingresa un ID de sala');
+          openSocket(room);
+        });
 
-        if(btnDisconnect) btnDisconnect.addEventListener('click', ()=>{ console.debug('[test-client] disconnect click'); if(sock){ try{ sock.close(); }catch(e){} } else addMessage('system','not connected'); });
+        if(btnDisconnect) btnDisconnect.addEventListener('click', ()=>{
+          console.debug('[chat-client] disconnect click');
+          if(sock){
+            try{ sock.close(); }catch(e){}
+          }else{
+            addMessage('system','No hay conexión activa');
+          }
+        });
 
-        if(btnSend) btnSend.addEventListener('click', ()=>{ console.debug('[test-client] send click'); if(!msgText) return; if(!sock || sock.readyState !== WebSocket.OPEN) return addMessage('system','socket not open'); const client_msg_id = 'cmsg_'+Date.now()+'_'+Math.floor(Math.random()*10000); const payload = { content: (msgText.value||'').trim(), client_msg_id }; try{ sock.send(JSON.stringify(payload)); }catch(e){ addMessage('system','send failed'); return; } addMessage('me', payload.content, { client_msg_id, ts: timeNow() }); msgText.value=''; });
+        if(fileInput) fileInput.addEventListener('change', (e)=>{
+          const file = e.target.files[0];
+          if(file && file.type.startsWith('image/')){
+            showFilePreview(file);
+          }else{
+            addMessage('system','Solo se permiten imágenes');
+          }
+        });
 
-        // enter -> send when focus is on input
-        if(msgText) msgText.addEventListener('keydown', e=>{ if(e.key==='Enter'){ if(btnSend) btnSend.click(); } });
+        if(btnSend) btnSend.addEventListener('click', async ()=>{
+          console.debug('[chat-client] send click');
+          if(!msgText) return;
+          if(!sock || sock.readyState !== WebSocket.OPEN){
+            addMessage('system','Conexión no establecida');
+            return;
+          }
+          
+          const text = (msgText.value||'').trim();
+          const hasFile = selectedFile !== null;
+          
+          if(!text && !hasFile){
+            addMessage('system','Escribe un mensaje o selecciona una imagen');
+            return;
+          }
+          
+          let mediaId = null;
+          if(hasFile){
+            addMessage('system','Subiendo imagen...');
+            mediaId = await uploadFile(selectedFile);
+            if(!mediaId){
+              addMessage('system','Error al subir imagen');
+              return;
+            }
+            clearFilePreview();
+          }
+          
+          const client_msg_id = 'cmsg_'+Date.now()+'_'+Math.floor(Math.random()*10000);
+          const payload = { content: text, client_msg_id };
+          if(mediaId) payload.media_id = mediaId;
+          
+          try{
+            sock.send(JSON.stringify(payload));
+            const msgOpts = { client_msg_id, ts: timeNow() };
+            if(mediaId && selectedFile){
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                msgOpts.imageUrl = e.target.result;
+                addMessage('me', text, msgOpts);
+              };
+              reader.readAsDataURL(selectedFile);
+            }else{
+              addMessage('me', text, msgOpts);
+            }
+            msgText.value = '';
+          }catch(e){
+            addMessage('system','Error al enviar mensaje');
+            console.error('[chat-client] send error', e);
+          }
+        });
+
+        if(msgText) msgText.addEventListener('keydown', e=>{
+          if(e.key==='Enter' && !e.shiftKey){
+            e.preventDefault();
+            if(btnSend) btnSend.click();
+          }
+        });
       }
 
-      if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initClient); else initClient();
+      if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initClient);
+      else initClient();
     })();
     </script>
   </body>

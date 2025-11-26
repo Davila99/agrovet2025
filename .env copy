@@ -1,9 +1,0 @@
-DB_NAME=agrovets2025
-DB_USER=root
-DB_PASSWORD=lazarous0101
-DB_HOST=127.0.0.1
-DB_PORT=3306
-SUPABASE_URL = "https://kprsxavfuqotrgfxyqbj.supabase.co"
-SUPABASE_KEY = "sb_secret_8jlGXGcs3ubH-9v7T6riiw_Hbq28d0R"
-SUPABASE_BUCKET = "agrovet-profile"
-AUTH_SERVICE_URL=http://localhost:8002

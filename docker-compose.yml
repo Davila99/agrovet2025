@@ -69,7 +69,7 @@ services:
       - "9092:9092"
       - "9094:9094"
     volumes:
-      - kafka-data:/bitnami
+      - kafka-data:/bitnamabi
     depends_on:
       - zookeeper
     networks:
@@ -438,13 +438,13 @@ services:
   # Frontend Development Server
   frontend:
     build:
-      context: ../dev/agrovet
+      context: ../../dev/agrovet
       dockerfile: Dockerfile
     container_name: agrovet-frontend
     ports:
       - "5173:5173"
     volumes:
-      - ../dev/agrovet:/app
+      - ../../dev/agrovet:/app
       - /app/node_modules
       - /app/dist
     environment:

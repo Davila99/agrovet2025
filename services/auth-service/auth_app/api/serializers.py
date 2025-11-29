@@ -11,15 +11,103 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
 class UserSerializer(serializers.ModelSerializer):
     """
-    Serializer básico para User.
-    Nota: Los perfiles (specialist_profile, businessman_profile, consumer_profile)
-    están en profiles-service y se pueden obtener vía HTTP o eventos Kafka.
+    Serializer para User que incluye perfiles completos.
+    Los perfiles se obtienen desde profiles-service.
     """
+    specialist_profile = serializers.SerializerMethodField(read_only=True)
+    businessman_profile = serializers.SerializerMethodField(read_only=True)
+    consumer_profile = serializers.SerializerMethodField(read_only=True)
+
+    def get_specialist_profile(self, obj):
+        """Obtener perfil de especialista desde profiles-service vía HTTP."""
+        try:
+            import requests
+            import os
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            profiles_service_url = os.getenv('PROFILES_SERVICE_URL', 'http://127.0.0.1:8003')
+            # Obtener token del request si está disponible
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            headers = {}
+            if request:
+                auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+                if auth_header:
+                    headers['Authorization'] = auth_header
+            
+            url = f'{profiles_service_url}/api/profiles/specialists/{obj.id}/'
+            logger.info(f"Fetching specialist profile for user {obj.id} from {url}")
+            response = requests.get(url, headers=headers, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"Successfully fetched specialist profile for user {obj.id}: {data.get('verification_status', 'no status')}")
+                return data
+            elif response.status_code == 403:
+                # Si es 403, es normal - no tenemos permisos para ver el perfil de otros usuarios
+                logger.warning(f"403 Forbidden for specialist profile user {obj.id} - this should not happen after the fix")
+            else:
+                logger.warning(f"Failed to fetch specialist profile for user {obj.id}: {response.status_code} - {response.text[:200]}")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Exception fetching specialist profile for user {obj.id}: {str(e)}", exc_info=True)
+        return None
+
+    def get_businessman_profile(self, obj):
+        """Obtener perfil de empresario desde profiles-service vía HTTP."""
+        try:
+            import requests
+            import os
+            profiles_service_url = os.getenv('PROFILES_SERVICE_URL', 'http://127.0.0.1:8003')
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            headers = {}
+            if request:
+                auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+                if auth_header:
+                    headers['Authorization'] = auth_header
+            
+            response = requests.get(
+                f'{profiles_service_url}/api/profiles/businessmen/{obj.id}/',
+                headers=headers,
+                timeout=2
+            )
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return None
+
+    def get_consumer_profile(self, obj):
+        """Obtener perfil de consumidor desde profiles-service vía HTTP."""
+        try:
+            import requests
+            import os
+            profiles_service_url = os.getenv('PROFILES_SERVICE_URL', 'http://127.0.0.1:8003')
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            headers = {}
+            if request:
+                auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+                if auth_header:
+                    headers['Authorization'] = auth_header
+            
+            response = requests.get(
+                f'{profiles_service_url}/api/profiles/consumers/{obj.id}/',
+                headers=headers,
+                timeout=2
+            )
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return None
+
     class Meta:
         model = User
         fields = [
             'id', 'full_name', 'last_name', 'phone_number', 'role', 'bio',
-            'profile_picture', 'latitude', 'longitude', 'date_joined', 'is_active'
+            'profile_picture', 'latitude', 'longitude', 'date_joined', 'is_active',
+            'specialist_profile', 'businessman_profile', 'consumer_profile'
         ]
         read_only_fields = ('id', 'date_joined')
 

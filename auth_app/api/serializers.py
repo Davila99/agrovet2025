@@ -64,14 +64,20 @@ class UserProfileImageUploadSerializer(serializers.Serializer):
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     profile_picture = serializers.ImageField(required=False, allow_null=True, use_url=True)  # Acepta imagen opcional
+    # Campo temporal para recibir datos de specialist_profile desde el frontend
+    specialist_profile_profession = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    # Campo temporal para recibir datos de businessman_profile desde el frontend
+    businessman_profile_business_type = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'last_name', 'phone_number', 'password', 'role', 'bio', 'profile_picture', 'latitude', 'longitude']
+        fields = ['id', 'full_name', 'last_name', 'phone_number', 'password', 'role', 'bio', 'profile_picture', 'latitude', 'longitude', 'specialist_profile_profession', 'businessman_profile_business_type']
 
     def create(self, validated_data):
         image = validated_data.pop('profile_picture', None)
         password = validated_data.pop('password', None)
+        profession = validated_data.pop('specialist_profile_profession', None)
+        business_type = validated_data.pop('businessman_profile_business_type', None)
 
         # Asegurarnos de usar el manager para que el password quede hasheado
         phone_number = validated_data.pop('phone_number', None)
@@ -83,14 +89,30 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         try:
             role_value = (user.role or '').lower()
             if role_value == 'specialist' or role_value == 'specialista' or role_value == 'specialist':
-                SpecialistProfile.objects.get_or_create(user=user)
+                # Crear perfil con profesión si se proporcionó
+                profile, created = SpecialistProfile.objects.get_or_create(user=user)
+                if profession and profession.strip():
+                    # Validar que la profesión sea una de las opciones permitidas
+                    allowed_professions = ['Veterinario', 'Agrónomo', 'Zootecnista']
+                    if profession in allowed_professions:
+                        profile.profession = profession
+                        profile.save()
             elif role_value == 'businessman' or role_value == 'business' or role_value == 'business_owner':
-                BusinessmanProfile.objects.get_or_create(user=user)
+                # Crear perfil con tipo de negocio si se proporcionó
+                profile, created = BusinessmanProfile.objects.get_or_create(user=user)
+                if business_type and business_type.strip():
+                    # Validar que el tipo de negocio sea una de las opciones permitidas
+                    allowed_business_types = ['Agroveterinaria', 'Empresa Agropecuaria']
+                    if business_type in allowed_business_types:
+                        profile.business_type = business_type
+                        profile.save()
             elif role_value == 'consumer' or role_value == 'client':
                 ConsumerProfile.objects.get_or_create(user=user)
-        except Exception:
+        except Exception as e:
             # No abortar el registro por fallo en la creación del perfil; registrar/log si se desea
-            pass
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error creating profile for user {user.id}: {e}")
 
         if image:
             try:

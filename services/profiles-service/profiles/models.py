@@ -12,7 +12,16 @@ class SpecialistProfile(models.Model):
     """Detalles del rol Especialista."""
     user_id = models.IntegerField(unique=True, db_index=True, help_text="ID del usuario en Auth Service")
     
-    profession = models.CharField(max_length=100, help_text="Veterinario, Agronomo, Sistemas, Etc...")
+    PROFESSION_CHOICES = [
+        ('Veterinario', 'Veterinario'),
+        ('Agrónomo', 'Agrónomo'),
+        ('Zootecnista', 'Zootecnista'),
+    ]
+    profession = models.CharField(
+        max_length=100, 
+        choices=PROFESSION_CHOICES,
+        help_text="Solo se permiten: Veterinario, Agrónomo o Zootecnista"
+    )
     experience_years = models.IntegerField(default=0)
     about_us = models.TextField(blank=True, verbose_name="Detalles/Acerca de")
     
@@ -26,6 +35,11 @@ class SpecialistProfile(models.Model):
     
     # Work images stored as JSON array of media_ids (from Media Service)
     work_images_ids = models.JSONField(default=list, blank=True, help_text="Lista de IDs de media en Media Service")
+    
+    # Documentos de verificación (media_ids desde Media Service)
+    verification_title_id = models.IntegerField(null=True, blank=True, help_text="ID del media del título profesional")
+    verification_student_card_id = models.IntegerField(null=True, blank=True, help_text="ID del media del carnet de estudiante")
+    verification_graduation_letter_id = models.IntegerField(null=True, blank=True, help_text="ID del media de la carta de egresado")
 
     class Meta:
         verbose_name = 'Perfil Especialista'
@@ -38,6 +52,17 @@ class SpecialistProfile(models.Model):
 class BusinessmanProfile(models.Model):
     """Detalles del rol Businessman (Dueño de negocio)."""
     user_id = models.IntegerField(unique=True, db_index=True, help_text="ID del usuario en Auth Service")
+    
+    BUSINESS_TYPE_CHOICES = [
+        ('Agroveterinaria', 'Agroveterinaria'),
+        ('Empresa Agropecuaria', 'Empresa Agropecuaria'),
+    ]
+    business_type = models.CharField(
+        max_length=100,
+        choices=BUSINESS_TYPE_CHOICES,
+        default='Agroveterinaria',
+        help_text="Tipo de negocio: Agroveterinaria o Empresa Agropecuaria"
+    )
     
     business_name = models.CharField(max_length=255)
     descriptions = models.TextField()

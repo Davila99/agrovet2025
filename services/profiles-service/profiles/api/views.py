@@ -438,6 +438,103 @@ class BusinessmanProfileViewSet(UserProfileViewSet):
     queryset = BusinessmanProfile.objects.all()
     serializer_class = BusinessmanProfileSerializer
 
+    def get_object(self):
+        """Obtener el BusinessmanProfile para el usuario indicado en la URL."""
+        user_id = self.kwargs.get('pk')
+        
+        # Verificar permisos
+        auth_user_id = getattr(self.request.user, 'id', None)
+        is_own_profile = auth_user_id and int(auth_user_id) == int(user_id)
+        is_staff = self.request.user.is_staff
+        
+        # Para GET: permitir a cualquier usuario autenticado ver perfiles de otros (datos públicos)
+        # Para PUT/PATCH/DELETE: solo permitir si es el propio perfil o staff
+        if self.request.method == 'GET':
+            # Cualquier usuario autenticado puede ver perfiles de otros
+            pass
+        else:
+            # Para modificar, solo el propio perfil o staff
+            if not (is_staff or is_own_profile):
+                raise PermissionDenied('No tiene permiso para modificar este recurso.')
+
+        # Verificar que el usuario existe en Auth Service
+        auth_client = get_auth_client()
+        raw = self.request.META.get('HTTP_AUTHORIZATION', '')
+        token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+        user = auth_client.get_user(int(user_id), token=token)
+        if not user:
+            from rest_framework.exceptions import NotFound
+            raise NotFound('Usuario no encontrado en Auth Service.')
+
+        profile, created = BusinessmanProfile.objects.get_or_create(user_id=int(user_id))
+        return profile
+
+    @action(detail=False, methods=['get', 'patch'], url_path=r'by-user/(?P<user_id>[^/.]+)')
+    def by_user(self, request, user_id=None):
+        """Endpoint semántico para obtener/actualizar el perfil por user id."""
+        user_id_int = int(user_id)
+        auth_user_id = getattr(request.user, 'id', None)
+
+        # Security: allow only staff or the user themselves
+        if not (request.user.is_staff or auth_user_id == user_id_int):
+            raise PermissionDenied('No tiene permiso para acceder a este recurso.')
+
+        profile, _ = BusinessmanProfile.objects.get_or_create(user_id=user_id_int)
+
+        if request.method == 'PATCH':
+            serializer = self.get_serializer(profile, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            saved_instance = serializer.save()
+            
+            # Campos a actualizar
+            update_fields = []
+            
+            # Asegurar que products_and_services_ids se guarde correctamente
+            if 'products_and_services_ids' in request.data:
+                products_and_services_ids = request.data.get('products_and_services_ids')
+                if products_and_services_ids is not None:
+                    # Normalizar a lista si viene como string o número único
+                    if isinstance(products_and_services_ids, (str, int)):
+                        products_and_services_ids = [products_and_services_ids]
+                    elif not isinstance(products_and_services_ids, list):
+                        products_and_services_ids = []
+                    # Filtrar valores None y convertir a enteros
+                    try:
+                        products_and_services_ids = [int(id) for id in products_and_services_ids if id is not None]
+                        saved_instance.products_and_services_ids = products_and_services_ids
+                        update_fields.append('products_and_services_ids')
+                        logger.info(f"Updated products_and_services_ids for businessman profile {saved_instance.id}: {products_and_services_ids}")
+                    except (ValueError, TypeError) as e:
+                        logger.error(f"Error converting products_and_services_ids to integers: {e}, received: {products_and_services_ids}")
+            
+            # Guardar todos los campos actualizados de una vez (solo si hay campos válidos)
+            if update_fields:
+                try:
+                    saved_instance.save(update_fields=update_fields)
+                    logger.info(f"Saved update_fields: {update_fields}")
+                except Exception as save_error:
+                    logger.error(f"Error saving update_fields {update_fields}: {save_error}", exc_info=True)
+                    raise
+            
+            # Recargar el serializer con los datos actualizados
+            serializer = self.get_serializer(saved_instance)
+            
+            # Publicar evento
+            try:
+                producer = get_producer()
+                producer.publish('profiles.events', 'profile.updated', {
+                    'profile_id': saved_instance.id,
+                    'user_id': user_id_int,
+                    'profile_type': 'businessman',
+                })
+            except Exception as e:
+                logger.error(f"Failed to publish profile.updated event: {e}")
+            
+            return Response(serializer.data)
+
+        serializer = self.get_serializer(profile)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
         """Override para publicar evento."""
         instance = super().perform_create(serializer)
@@ -470,4 +567,5 @@ class ConsumerProfileViewSet(UserProfileViewSet):
         except Exception as e:
             logger.error(f"Failed to publish profile.created event: {e}")
         return instance
+
 

@@ -44,7 +44,14 @@ class CommentSerializer(serializers.ModelSerializer):
         """Obtener información del usuario desde Auth Service."""
         try:
             auth_client = get_auth_client()
-            user = auth_client.get_user(obj.user_id)
+            # Try to pass through the incoming Authorization header so Auth Service
+            # can return profile information (specialist/businessman) when allowed.
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            token = None
+            if request is not None:
+                raw = getattr(request, 'META', {}).get('HTTP_AUTHORIZATION', '')
+                token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+            user = auth_client.get_user(obj.user_id, token=token)
             if user:
                 return {
                     'id': user.get('id'),
@@ -102,13 +109,37 @@ class PostSerializer(serializers.ModelSerializer):
         """Obtener información del autor desde Auth Service."""
         try:
             auth_client = get_auth_client()
-            user = auth_client.get_user(obj.author_id)
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            token = None
+            if request is not None:
+                raw = getattr(request, 'META', {}).get('HTTP_AUTHORIZATION', '')
+                token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+            user = auth_client.get_user(obj.author_id, token=token)
             if user:
-                return {
+                # Enrich author representation with role/profession/verification where available
+                author = {
                     'id': user.get('id'),
                     'name': user.get('full_name') or f"User {obj.author_id}",
                     'avatar': user.get('profile_picture'),
+                    'role': user.get('role'),
                 }
+                # Specialist profile
+                spec = user.get('specialist_profile')
+                if spec:
+                    author['profession'] = spec.get('profession')
+                    # verification_type/is_verified come from profiles-service
+                    const_ver = spec.get('verification_type')
+                    author['verification_type'] = const_ver
+                    author['is_verified'] = bool(spec.get('is_verified'))
+                    # Map to frontend flags expected by PostCard
+                    author['is_student'] = const_ver == 'student'
+                    author['is_titled'] = const_ver in ('graduated', 'title')
+                # Businessman profile
+                bus = user.get('businessman_profile')
+                if bus:
+                    author['business_type'] = bus.get('business_type')
+                    author['business_name'] = bus.get('business_name')
+                return author
         except Exception:
             pass
         return {'id': obj.author_id, 'name': f"User {obj.author_id}", 'avatar': None}
@@ -165,7 +196,12 @@ class ReactionSerializer(serializers.ModelSerializer):
         """Obtener información del usuario desde Auth Service."""
         try:
             auth_client = get_auth_client()
-            user = auth_client.get_user(obj.user_id)
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            token = None
+            if request is not None:
+                raw = getattr(request, 'META', {}).get('HTTP_AUTHORIZATION', '')
+                token = raw.replace('Token ', '').replace('Bearer ', '') if raw else None
+            user = auth_client.get_user(obj.user_id, token=token)
             if user:
                 return {
                     'id': user.get('id'),

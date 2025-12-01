@@ -30,6 +30,70 @@ from foro.utils.supabase_utils import upload_image_to_supabase
 logger = logging.getLogger(__name__)
 
 
+def _add_user_to_communities_by_role(user_id, role):
+    """Helper: add user_id to communities based on role. Returns list of community ids updated."""
+    role_lower = (role or '').lower()
+    slug_map = {
+        'consumer': 'ganaderos-agricultores-animales',
+        'consumidor': 'ganaderos-agricultores-animales',
+        'specialist': 'especialistas-salud',
+        'especialista': 'especialistas-salud',
+        'businessman': 'agronegocios',
+        'empresario': 'agronegocios',
+    }
+    # Always include general
+    slugs = ['general']
+    for k, v in slug_map.items():
+        if k in role_lower:
+            if v not in slugs:
+                slugs.append(v)
+    updated = []
+    for slug in slugs:
+        try:
+            comm = Community.objects.filter(slug=slug).first()
+            if comm:
+                if comm.members_ids is None:
+                    comm.members_ids = []
+                if user_id not in comm.members_ids:
+                    comm.members_ids.append(user_id)
+                    comm.update_members_count()
+                updated.append(comm.id)
+        except Exception as e:
+            logger.error(f"_add_user_to_communities_by_role error for user {user_id} slug={slug}: {e}")
+            continue
+    return updated
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json
+
+
+@csrf_exempt
+def internal_add_user_to_communities(request):
+    """Internal endpoint used by Auth Service to ensure users are members of role communities.
+
+    Expected JSON body: { "user_id": 123, "role": "consumer" }
+    Requires header `X-INTERNAL-SECRET` matching env var `FORO_INTERNAL_SECRET`.
+    """
+    secret = os.getenv('FORO_INTERNAL_SECRET', 'dev-internal-secret')
+    provided = request.META.get('HTTP_X_INTERNAL_SECRET', '')
+    if not provided or provided != secret:
+        return JsonResponse({'detail': 'Forbidden'}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+    user_id = payload.get('user_id')
+    role = payload.get('role')
+    if not user_id:
+        return JsonResponse({'detail': 'user_id required'}, status=400)
+
+    updated = _add_user_to_communities_by_role(int(user_id), role)
+    return JsonResponse({'updated': updated})
+
+
 def get_user_from_token(request):
     """Obtener usuario desde token."""
     token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').replace('Bearer ', '')
@@ -74,6 +138,48 @@ class PostViewSet(viewsets.ModelViewSet):
             })
         except Exception as e:
             logger.error(f"Failed to publish foro.post.created event: {e}")
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def feed(self, request):
+        """Return posts from communities where the authenticated user is a member."""
+        user = get_user_from_token(request)
+        if not user:
+            return Response({'detail': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            # Find communities that include this user id in members_ids JSONField
+            comms = Community.objects.filter(members_ids__contains=[user.get('id')])
+            comm_ids = [c.id for c in comms]
+            posts = Post.objects.filter(community_id__in=comm_ids).order_by('-created_at')
+            page = self.paginate_queryset(posts)
+            serializer = PostSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        except Exception as e:
+            logger.exception('Error building feed')
+            return Response({'detail': 'Error interno'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='by-community')
+    def by_community(self, request):
+        """Return posts for a specific community identified by slug or id (query param `slug` or `id`)."""
+        slug = request.query_params.get('slug')
+        cid = request.query_params.get('id')
+        try:
+            if slug:
+                comm = Community.objects.filter(slug=slug).first()
+                if not comm:
+                    return Response({'detail': 'Comunidad no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+                posts = Post.objects.filter(community_id=comm.id).order_by('-created_at')
+            elif cid:
+                posts = Post.objects.filter(community_id=int(cid)).order_by('-created_at')
+            else:
+                return Response({'detail': 'slug or id required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            page = self.paginate_queryset(posts)
+            serializer = PostSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        except Exception:
+            logger.exception('Error fetching posts by community')
+            return Response({'detail': 'Error interno'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def relevant(self, request):

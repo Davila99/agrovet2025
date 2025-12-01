@@ -145,3 +145,15 @@ def sync_is_online(user_id: int) -> bool:
         logger.exception('sync_is_online failed')
         return int(user_id) in _LOCAL_ONLINE
 
+
+async def get_all_online_users() -> list:
+    """Get all currently online user IDs."""
+    try:
+        rc = _get_async_client()
+        if rc:
+            members = await rc.smembers('chat:online_users')
+            return [int(m) for m in members if m]
+        return list(_LOCAL_ONLINE)
+    except Exception:
+        logger.exception('get_all_online_users failed')
+        return list(_LOCAL_ONLINE)

@@ -11,7 +11,7 @@ import os
 # Add common to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 from chat.models import ChatMessage, ChatMessageReceipt, ChatRoom, get_or_create_private_chat
-from chat.presence import mark_online, mark_offline, is_online
+from chat.presence import mark_online, mark_offline, is_online, get_all_online_users
 from common.events.kafka_producer import get_producer
 
 logger = logging.getLogger(__name__)
@@ -37,10 +37,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.channel_layer.group_add(self.user_group_name, self.channel_name)
 
-        # Marcar como online
-        if self.user_id:
-            await mark_online(self.user_id)
-
+        # Nota: online/offline lo maneja PresenceConsumer
         await self.accept()
         logger.info(f'[CONNECT] user_id={self.user_id} joined room={self.room_id}')
 
@@ -52,10 +49,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         except Exception:
             logger.exception('group_discard failed')
         
-        # Marcar como offline
-        if self.user_id:
-            await mark_offline(self.user_id)
-        
+        # Nota: online/offline lo maneja PresenceConsumer
         logger.info(f'[DISCONNECT] user_id={self.user_id} left room={self.room_id}')
 
     async def receive_json(self, content, **kwargs):
@@ -264,6 +258,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 class PresenceConsumer(AsyncJsonWebsocketConsumer):
     """Consumer para presencia online/offline."""
     
+    # Grupo global para notificar presencia a todos los usuarios conectados
+    PRESENCE_GROUP = 'presence_global'
+    
     async def connect(self):
         """Conectar al WebSocket de presencia."""
         user = self.scope.get('user')
@@ -275,23 +272,51 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
         self.user_id = getattr(user, 'id', None)
         self.user_group_name = f'user_{self.user_id}'
 
+        # Primero aceptar la conexión
+        await self.accept()
+        
+        # Luego unirse a los grupos
         await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+        await self.channel_layer.group_add(self.PRESENCE_GROUP, self.channel_name)
         
         if self.user_id:
             await mark_online(self.user_id)
-
-        await self.accept()
+            
+            # Notificar a todos (incluyéndome) que este usuario está online
+            await self.channel_layer.group_send(
+                self.PRESENCE_GROUP,
+                {
+                    'type': 'presence_update',
+                    'event': 'online',
+                    'user_id': self.user_id,
+                }
+            )
+        
         logger.info(f'[PRESENCE_CONNECT] user_id={self.user_id}')
 
     async def disconnect(self, close_code):
         """Desconectar."""
-        try:
-            await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
-        except Exception:
-            pass
-        
+        # Notificar a todos que este usuario está offline ANTES de salir del grupo
         if self.user_id:
             await mark_offline(self.user_id)
+            
+            try:
+                await self.channel_layer.group_send(
+                    self.PRESENCE_GROUP,
+                    {
+                        'type': 'presence_update',
+                        'event': 'offline',
+                        'user_id': self.user_id,
+                    }
+                )
+            except Exception as e:
+                logger.warning(f'Failed to broadcast offline: {e}')
+        
+        try:
+            await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+            await self.channel_layer.group_discard(self.PRESENCE_GROUP, self.channel_name)
+        except Exception:
+            pass
         
         logger.info(f'[PRESENCE_DISCONNECT] user_id={self.user_id}')
 
@@ -300,4 +325,37 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
         event_type = content.get('type')
         if event_type == 'ping':
             await self.send_json({'type': 'pong'})
+        elif event_type == 'get_online_users':
+            # Cliente solicita lista de usuarios online
+            await self.send_online_users_list()
+
+    async def presence_update(self, event):
+        """Handler para enviar actualizaciones de presencia a los clientes."""
+        user_id = event.get('user_id')
+        presence_event = event.get('event')
+        
+        # No enviar al mismo usuario su propia actualización
+        if user_id == self.user_id:
+            return
+            
+        await self.send_json({
+            'type': f'presence.{presence_event}',
+            'user_id': user_id,
+        })
+
+    async def send_online_users_list(self):
+        """Enviar lista de usuarios actualmente online."""
+        try:
+            online_users = await get_all_online_users()
+            logger.info(f'[PRESENCE] Sending online users list: {online_users}')
+            await self.send_json({
+                'type': 'online_users_list',
+                'users': online_users,
+            })
+        except Exception as e:
+            logger.error(f'Error getting online users list: {e}')
+            await self.send_json({
+                'type': 'online_users_list',
+                'users': [],
+            })
 

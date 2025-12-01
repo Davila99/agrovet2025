@@ -139,6 +139,16 @@ class Community(models.Model):
 
     def update_members_count(self):
         """Actualizar contador de miembros."""
+        # Ensure members_ids is a list
+        if self.members_ids is None:
+            self.members_ids = []
+        # Normalize possible string IDs to ints when possible
+        try:
+            self.members_ids = [int(x) for x in self.members_ids]
+        except Exception:
+            # If conversion fails, keep original list
+            pass
         self.members_count = len(self.members_ids) if self.members_ids else 0
-        self.save(update_fields=['members_count'])
+        # Persist both members_ids and members_count to keep DB consistent
+        self.save(update_fields=['members_ids', 'members_count'])
 

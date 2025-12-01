@@ -5,17 +5,16 @@ from foro.models import Community
 
 class Command(BaseCommand):
     help = (
-        'Create default communities (general, consumidores, agroveterinarias, '
-        'veterinarios, agronomos, especialistas) and assign users accordingly'
+        'Create default communities (general, dueno-animales-agricultores, especialistas, agronegocios) and assign users accordingly'
     )
 
     def handle(self, *args, **options):
         User = get_user_model()
-        # If an older 'empresarios' community exists, migrate/rename it to 'agroveterinarias'
+        # If an older 'empresarios' community exists, migrate/rename it to 'agronegocios'
         try:
             old = Community.objects.filter(slug='empresarios').first()
             if old:
-                target = Community.objects.filter(slug='agroveterinarias').first()
+                target = Community.objects.filter(slug='agronegocios').first()
                 if target:
                     # move members from old to target and delete old
                     target.members.add(*old.members.all())
@@ -24,18 +23,18 @@ class Command(BaseCommand):
                     old.delete()
                 else:
                     # rename
-                    old.slug = 'agroveterinarias'
-                    old.name = 'Agroveterinarias'
+                    old.slug = 'agronegocios'
+                    old.name = 'Agronegocios'
                     old.save(update_fields=['slug', 'name'])
         except Exception:
             pass
+            
+        # Updated community structure to match exact requirements
         slugs = [
             ('general', 'General'),
-            ('consumidores', 'Consumidores'),
-            ('agroveterinarias', 'Agroveterinarias'),
-            ('veterinarios', 'Veterinarios'),
-            ('agronomos', 'Agronomos'),
+            ('dueno-animales-agricultores', 'Dueños de Animales y Agricultores'),
             ('especialistas', 'Especialistas'),
+            ('agronegocios', 'Agronegocios'),
         ]
 
         created = []
@@ -63,7 +62,7 @@ class Command(BaseCommand):
         general.save(update_fields=['members_count'])
         self.stdout.write(self.style.SUCCESS('Added %d users to general community' % users.count()))
 
-        # role-based assignment
+        # Updated role-based assignment to match exact requirements
         for user in users:
             role = getattr(user, 'role', None)
             if not role:
@@ -71,22 +70,22 @@ class Command(BaseCommand):
             # normalize role string to lowercase for common matches
             r = str(role).lower()
             if r in ('consumer', 'consumidor', 'consumidores'):
-                c = Community.objects.get(slug='consumidores')
+                # Consumer goes to dueños de animales y agricultores community
+                c = Community.objects.get(slug='dueno-animales-agricultores')
+                c.members.add(user)
+                c.members_count = c.members.count()
+                c.save(update_fields=['members_count'])
+            elif r in ('veterinario', 'veterinarios', 'agronomo', 'agronomos', 'specialist', 'specialists', 'specialista', 'especialista', 'especialistas'):
+                # Specialists (veterinarians and agronomists) go to especialistas community
+                c = Community.objects.get(slug='especialistas')
                 c.members.add(user)
                 c.members_count = c.members.count()
                 c.save(update_fields=['members_count'])
             elif r in ('businessman', 'empresario', 'empresarios'):
-                # map business role to agroveterinarias
-                c = Community.objects.get(slug='agroveterinarias')
+                # Businessmen go to agronegocios
+                c = Community.objects.get(slug='agronegocios')
                 c.members.add(user)
                 c.members_count = c.members.count()
                 c.save(update_fields=['members_count'])
-            elif r in ('specialist', 'specialists', 'specialista', 'especialista', 'especialistas'):
-                # Assign specialists to veterinarian/agronomist and especialistas
-                for slug in ['veterinarios', 'agronomos', 'especialistas']:
-                    c = Community.objects.get(slug=slug)
-                    c.members.add(user)
-                    c.members_count = c.members.count()
-                    c.save(update_fields=['members_count'])
 
         self.stdout.write(self.style.SUCCESS('Role-based assignment completed'))

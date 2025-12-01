@@ -151,12 +151,14 @@ def add_user_to_default_communities(sender, instance, created, **kwargs):
         return
 
     # Mapping from role value to list of community slugs to join
+    # Updated to match exact requirements:
+    # - Grupo 1: Consumer role -> dueño animales, agricultores
+    # - Grupo 2: Specialist role -> especialistas (veterinario o agronomo)
+    # - Grupo 3: Businessman role -> agronegocios
     role_map = {
-        'consumer': ['consumidores'],
-        'businessman': ['agroveterinarias'],
-        'veterinario': ['veterinarios'],
-        'agronomo': ['agronomos'],
-        'Specialist': ['especialistas'],
+        'consumer': ['dueno-animales-agricultores'],  # Grupo 1
+        'Specialist': ['especialistas'],              # Grupo 2
+        'businessman': ['agronegocios'],             # Grupo 3
     }
 
     slugs = role_map.get(role, [])
